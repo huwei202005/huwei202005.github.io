@@ -77,9 +77,9 @@
             const hashedUserGuess = CryptoJS.SHA256(userGuess.toString()).toString();
 
             if (hashedUserGuess === hashedTargetNumber) {
-                message.textContent = `恭喜！你猜對了！總共嘗試了${attempts}次。新的遊戲馬上開始！`;
+                message.textContent = `恭喜！你猜對了！總共嘗試了${attempts}次。重整以重新開始！`;
                 message.style.color = 'green';
-                setTimeout(resetGame, 1000); // 3秒後重置遊戲
+                
             } else if (userGuess < targetNumber) {
                 message.textContent = '太小了，再試一次！';
                 message.style.color = 'orange';
@@ -92,15 +92,7 @@
             guessInput.focus();
         }
 
-        function resetGame() {
-            const newTargetNumber = Math.floor(Math.random() * 100) + 1;
-            targetNumber = newTargetNumber;
-            hashedTargetNumber = CryptoJS.SHA256(targetNumber.toString()).toString();
-            attempts = 0;
-            const message = document.getElementById('message');
-            message.textContent = '猜一個1到100之間的數字：';
-            message.style.color = '#333';
-        }
+        
     </script>
 </body>
 </html>
