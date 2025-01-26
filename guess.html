@@ -79,7 +79,7 @@
             if (hashedUserGuess === hashedTargetNumber) {
                 message.textContent = `恭喜！你猜對了！總共嘗試了${attempts}次。新的遊戲馬上開始！`;
                 message.style.color = 'green';
-                setTimeout(resetGame, 3000); // 3秒後重置遊戲
+                setTimeout(resetGame, 1000); // 3秒後重置遊戲
             } else if (userGuess < targetNumber) {
                 message.textContent = '太小了，再試一次！';
                 message.style.color = 'orange';
