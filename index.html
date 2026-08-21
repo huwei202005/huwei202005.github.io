@@ -3,98 +3,88 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>猜大小遊戲</title>
+    <title>真實動物視角模擬器</title>
     <style>
-        body {
-            font-family: 'Arial', sans-serif;
-            background-color: #f0f8ff;
-            color: #333;
-            margin: 0;
-            padding: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: #111; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        
+        #viewfinder { flex: 1; position: relative; width: 100%; overflow: hidden; display: flex; justify-content: center; align-items: center; background: #000; }
+        video, canvas { position: absolute; width: 100%; height: 100%; object-fit: cover; }
+        
+        /* 視覺濾鏡效果 */
+        .filter-dog { filter: sepia(30%) hue-rotate(180deg) saturate(1.2) contrast(1.1); }
+        .filter-insect { filter: contrast(150%) brightness(90%); }
+        .filter-snake { filter: grayscale(100%) invert(100%) contrast(200%); }
+        
+        /* 昆蟲複眼網格覆蓋層 */
+        #insect-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            background-image: radial-gradient(circle, transparent 60%, rgba(0,0,0,0.8) 90%);
+            box-shadow: inset 0 0 50px rgba(0,0,0,0.9);
+            display: none;
         }
-        .container {
-            text-align: center;
-        }
-        input[type="number"] {
-            padding: 10px;
-            font-size: 16px;
-        }
-        button {
-            padding: 10px 20px;
-            font-size: 16px;
-            background-color: #ff6347;
-            color: white;
-            border: none;
-            cursor: pointer;
-            margin-top: 10px;
-        }
-        button:hover {
-            background-color: #ff4500;
-        }
-        .message {
-            margin-top: 20px;
-            font-size: 18px;
-        }
-        footer {
-            background-color: #ff6347;
-            color: white;
-            text-align: center;
-            padding: 10px;
-            width: 100%;
-            position: fixed;
-            bottom: 0;
-        }
+
+        #controls { padding: 15px; background: #222; display: flex; justify-content: space-around; gap: 5px; z-index: 10; flex-wrap: wrap; }
+        button { padding: 10px 15px; border: none; border-radius: 5px; background: #444; color: #fff; font-size: 14px; cursor: pointer; flex: 1; min-width: 70px; }
+        button.active { background: #007aff; font-weight: bold; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>猜大小遊戲</h1>
-        <p>猜一個1到100之間的數字：</p>
-        <input type="number" id="guessInput" min="1" max="100" placeholder="輸入你的猜測">
-        <button onclick="checkGuess()">猜測</button>
-        <p class="message" id="message"></p>
+
+    <div id="viewfinder">
+        <video id="webcam" autoplay playsinline muted></video>
+        <canvas id="canvas" style="display:none;"></canvas>
+        <div id="insect-overlay"></div>
     </div>
-    <footer>
-        <p>&copy; 2025猜大小 - Made by Copilot</p>
-    </footer>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/crypto-js.js"></script>
+
+    <div id="controls">
+        <button class="active" onclick="setMode('human', this)">人類</button>
+        <button onclick="setMode('dog', this)">貓狗</button>
+        <button onclick="setMode('insect', this)">昆蟲複眼</button>
+        <button onclick="setMode('snake', this)">蛇類熱視</button>
+    </div>
+
     <script>
-        let targetNumber = Math.floor(Math.random() * 100) + 1;
-        const hashedTargetNumber = CryptoJS.SHA256(targetNumber.toString()).toString();
-        let attempts = 0;
+        const video = document.getElementById('webcam');
+        const insectOverlay = document.getElementById('insect-overlay');
+        let currentMode = 'human';
 
-        function checkGuess() {
-            const guessInput = document.getElementById('guessInput');
-            const message = document.getElementById('message');
-            const userGuess = Number(guessInput.value);
-            attempts++;
-
-            const hashedUserGuess = CryptoJS.SHA256(userGuess.toString()).toString();
-
-            if (hashedUserGuess === hashedTargetNumber) {
-                message.textContent = `恭喜！你猜對了！總共嘗試了${attempts}次。頁面將在 3 秒內重新整理。`;
-                message.style.color = 'green';
-                
-                // 5 秒後重新整理頁面
-                setTimeout(() => {
-                    location.reload();
-                }, 3000);
-            } else if (userGuess < targetNumber) {
-                message.textContent = '太小了，再試一次！';
-                message.style.color = 'orange';
-            } else {
-                message.textContent = '太大了，再試一次！';
-                message.style.color = 'orange';
+        // 啟動手機相機（優先使用後鏡頭）
+        async function initCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: { ideal: "environment" } },
+                    audio: false
+                });
+                video.srcObject = stream;
+            } catch (err) {
+                alert("無法存取相機，請確認是否授權權限。");
             }
-
-            guessInput.value = '';
-            guessInput.focus();
         }
+
+        function setMode(mode, btn) {
+            currentMode = mode;
+            document.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            // 重置效果
+            video.className = '';
+            insectOverlay.style.display = 'none';
+
+            // 套用對應視角模式
+            if (mode === 'dog') {
+                video.classList.add('filter-dog');
+            } else if (mode === 'insect') {
+                video.classList.add('filter-insect');
+                insectOverlay.style.display = 'block';
+            } else if (mode === 'snake') {
+                video.classList.add('filter-snake');
+            }
+        }
+
+        initCamera();
     </script>
 </body>
 </html>
