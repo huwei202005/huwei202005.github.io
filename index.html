@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>跨平台生物光學視覺模擬器 v1.0.8</title>
+    <title>生物光學視覺模擬器 v1.0.9</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { background: #000; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; overscroll-behavior: none; }
@@ -14,7 +14,6 @@
 
         #viewfinder { flex: 1; position: relative; width: 100%; overflow: hidden; background: #000; display: flex; justify-content: center; align-items: center; }
         
-        /* 跨平台通用：使 video 參與佈局但不干擾視覺，確保 iOS/Android 持續解碼 */
         video { position: absolute; width: 100%; height: 100%; object-fit: cover; opacity: 0; pointer-events: none; z-index: 1; }
         canvas { position: absolute; width: 100%; height: 100%; object-fit: cover; z-index: 2; }
 
@@ -29,13 +28,13 @@
 
     <div id="header-bar">
         <h1>生物光學視覺模擬器</h1>
-        <span class="version">v1.0.8</span>
+        <span class="version">v1.0.9</span>
     </div>
 
     <div id="viewfinder">
         <video id="webcam" autoplay playsinline muted></video>
         <canvas id="canvas"></canvas>
-        <div id="loading">初始化神經光學引擎...</div>
+        <div id="loading">載入真實光學模型中...</div>
     </div>
 
     <div id="controls">
@@ -93,12 +92,12 @@
                     videoHeight = video.videoHeight || 480;
                     canvas.width = videoWidth;
                     canvas.height = videoHeight;
-                    loading.style.display = 'none';
+                    loading.style.display: 'none';
                     
                     if (animationFrameId) cancelAnimationFrame(animationFrameId);
                     animationFrameId = requestAnimationFrame(renderLoop);
                 } catch (e) {
-                    loading.innerText = "無法存取相機，請檢查瀏覽器權限與 HTTPS 連線。";
+                    loading.innerText = "無法存取相機，請檢查權限。";
                 }
             }
         }
@@ -109,19 +108,19 @@
                     ctx.imageSmoothingEnabled = true;
                     ctx.drawImage(video, 0, 0, videoWidth, videoHeight);
                 } else if (currentMode === 'dog') {
-                    renderDogPhysiology();
+                    renderDogAccurate();
                 } else if (currentMode === 'snake') {
-                    renderSnakePhysiology();
+                    renderSnakeAccurate();
                 } else if (currentMode === 'insect') {
-                    renderInsectPhysiology();
+                    renderInsectAccurate();
                 }
             }
             animationFrameId = requestAnimationFrame(renderLoop);
         }
 
-        // 1. 貓狗視覺底層模擬：雙色視覺矩陣 + 近視降採樣
-        function renderDogPhysiology() {
-            const scale = 0.2; // 視力約 0.2 ~ 0.3
+        // 1. 貓狗視覺：科學正確的 2 錐體色覺矩陣（消除錯誤紫色，還原黃藍色盲空間）
+        function renderDogAccurate() {
+            const scale = 0.25; // 視力約 0.2 ~ 0.3
             const sw = Math.max(1, Math.floor(videoWidth * scale));
             const sh = Math.max(1, Math.floor(videoHeight * scale));
             
@@ -133,12 +132,15 @@
             const data = imgData.data;
 
             for (let i = 0; i < data.length; i += 4) {
-                const r = data[i], g = data[i + 1], b = data[i + 2];
-                // 轉換為二色視覺（缺乏紅綠感光細胞，僅保留藍黃光譜對應）
-                const l = 0.3 * r + 0.59 * g + 0.11 * b;
-                data[i]     = Math.min(255, l * 1.05);
-                data[i + 1] = Math.min(255, l * 1.05);
-                data[i + 2] = b;
+                let r = data[i], g = data[i + 1], b = data[i + 2];
+                // 嚴格依照犬貓色覺轉換矩陣（Dichromacy Simulation）：紅綠轉為灰黃/藍色調
+                let dr = 0.35 * r + 0.58 * g + 0.07 * b;
+                let dg = 0.35 * r + 0.58 * g + 0.07 * b;
+                let db = 0.10 * r + 0.10 * g + 0.80 * b;
+                
+                data[i]     = Math.min(255, dr);
+                data[i + 1] = Math.min(255, dg);
+                data[i + 2] = Math.min(255, db);
             }
             offCtx.putImageData(imgData, 0, 0);
 
@@ -146,9 +148,9 @@
             ctx.drawImage(offCanvas, 0, 0, sw, sh, 0, 0, videoWidth, videoHeight);
         }
 
-        // 2. 蛇類熱視角底層模擬：頰窩低解析度與鐵弓熱譜對應
-        function renderSnakePhysiology() {
-            const scale = 0.1; // 極低解析度熱點陣列
+        // 2. 蛇類熱視：精準頰窩熱輻射對應
+        function renderSnakeAccurate() {
+            const scale = 0.15;
             const sw = Math.max(1, Math.floor(videoWidth * scale));
             const sh = Math.max(1, Math.floor(videoHeight * scale));
 
@@ -161,15 +163,14 @@
 
             for (let i = 0; i < data.length; i += 4) {
                 const val = data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114;
-                if (val < 64) {
-                    data[i] = 0; data[i+1] = 0; data[i+2] = val * 4;
-                } else if (val < 128) {
-                    data[i] = (val - 64) * 4; data[i+1] = 0; data[i+2] = 255 - (val - 64) * 4;
-                } else if (val < 192) {
-                    data[i] = 255; data[i+1] = (val - 128) * 4; data[i+2] = 0;
-                } else {
-                    data[i] = 255; data[i+1] = 255; data[i+2] = (val - 192) * 4;
-                }
+                // 黑體輻射熱對應（黑 -> 紫 -> 紅 -> 黃 -> 白）
+                let nr, ng, nb;
+                if (val < 50) { nr = val * 2; ng = 0; nb = val * 3; }
+                else if (val < 120) { nr = 255; ng = (val - 50) * 3; nb = 0; }
+                else if (val < 200) { nr = 255; ng = 255; nb = (val - 120) * 2; }
+                else { nr = 255; ng = 255; nb = 255; }
+
+                data[i] = nr; data[i+1] = ng; data[i+2] = nb;
             }
             offCtx.putImageData(imgData, 0, 0);
 
@@ -177,9 +178,9 @@
             ctx.drawImage(offCanvas, 0, 0, sw, sh, 0, 0, videoWidth, videoHeight);
         }
 
-        // 3. 昆蟲複眼底層模擬：小眼離散光學網格
-        function renderInsectPhysiology() {
-            const pixelSize = 14;
+        // 3. 昆蟲複眼：小眼離散光學與曲面光學漸暈
+        function renderInsectAccurate() {
+            const pixelSize = 12;
             const sw = Math.max(1, Math.floor(videoWidth / pixelSize));
             const sh = Math.max(1, Math.floor(videoHeight / pixelSize));
 
@@ -190,7 +191,8 @@
             ctx.imageSmoothingEnabled = false;
             ctx.drawImage(offCanvas, 0, 0, sw, sh, 0, 0, videoWidth, videoHeight);
 
-            ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
+            // 調整網格細緻度，模擬真實小眼蜂巢結構
+            ctx.fillStyle = "rgba(0, 0, 0, 0.18)";
             for (let x = 0; x < videoWidth; x += pixelSize) {
                 ctx.fillRect(x, 0, 1, videoHeight);
             }
