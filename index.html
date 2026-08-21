@@ -3,120 +3,72 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>UMWELT｜跨物種視覺模擬儀</title>
+<title>UMWELT｜跨物種視覺光學模擬儀</title>
 <style>
   :root {
-    --ink: #0a0d0a;
-    --ink-2: #12160f;
-    --paper: #e7e3d3;
-    --paper-dim: #9c9a86;
-    --phosphor: #8fe38f;
-    --phosphor-dim: #4f7a52;
-    --rust: #c2652e;
-    --amber: #d9a441;
+    --ink: #0a0d0a; --ink-2: #12160f; --paper: #e7e3d3; --paper-dim: #9c9a86;
+    --phosphor: #8fe38f; --phosphor-dim: #4f7a52; --rust: #c2652e; --amber: #d9a441;
     --slate: #31382f;
     --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
     --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
-  html, body { height: 100%; overscroll-behavior: none; }
-  body {
-    background: var(--ink); color: var(--paper);
-    font-family: var(--mono);
-    height: 100vh; height: 100dvh;
-    display: flex; flex-direction: column;
-    overflow: hidden;
-  }
+  * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+  html, body { height: 100%; overscroll-behavior: none; background: var(--ink); color: var(--paper); font-family: var(--mono); overflow: hidden; }
 
-  /* ---------- boot screen ---------- */
+  /* ---------- 開機畫面 ---------- */
   #boot {
-    position: fixed; inset: 0; z-index: 50;
-    background: radial-gradient(ellipse at 50% -10%, rgba(143,227,143,0.08), transparent 60%), var(--ink);
-    display: flex; align-items: center; justify-content: center;
-    padding: 24px;
-    padding-top: calc(24px + env(safe-area-inset-top));
-    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+    position: fixed; inset: 0; z-index: 50; background: radial-gradient(ellipse at 50% -10%, rgba(143,227,143,0.08), transparent 60%), var(--ink);
+    display: flex; align-items: center; justify-content: center; padding: 24px;
   }
   .boot-inner { max-width: 420px; width: 100%; text-align: center; }
-  .boot-eyebrow { font-size: 10px; letter-spacing: 0.2em; color: var(--phosphor-dim); margin-bottom: 18px; }
-  #boot h1 { font-family: var(--serif); font-style: italic; font-weight: 600; font-size: 52px; letter-spacing: 0.01em; color: var(--paper); margin-bottom: 14px; }
-  .boot-sub { font-family: var(--mono); font-size: 13px; line-height: 1.7; color: var(--paper-dim); margin-bottom: 30px; }
-  #startBtn { font-family: var(--mono); font-size: 14px; letter-spacing: 0.08em; background: var(--phosphor); color: #04140a; border: none; padding: 15px 30px; border-radius: 2px; font-weight: 700; cursor: pointer; width: 100%; }
-  #startBtn:active { background: #79cc7d; }
-  .boot-msg { margin-top: 16px; font-size: 12px; color: var(--rust); min-height: 16px; line-height: 1.6; }
-  .boot-refs { margin-top: 34px; font-size: 9px; letter-spacing: 0.03em; color: #4a4d43; border-top: 1px solid var(--slate); padding-top: 14px; }
+  #boot h1 { font-family: var(--serif); font-style: italic; font-weight: 600; font-size: 52px; color: var(--paper); margin-bottom: 14px; }
+  .boot-sub { font-size: 13px; line-height: 1.7; color: var(--paper-dim); margin-bottom: 30px; }
+  #startBtn { font-family: var(--mono); font-size: 14px; letter-spacing: 0.08em; background: var(--phosphor); color: #04140a; border: none; padding: 15px 30px; font-weight: 700; cursor: pointer; width: 100%; }
+  .boot-msg { margin-top: 16px; font-size: 12px; color: var(--rust); min-height: 16px; }
 
-  /* ---------- app shell ---------- */
+  /* ---------- 主程式區 ---------- */
   #app { position: fixed; inset: 0; display: flex; flex-direction: column; }
   #app[hidden] { display: none; }
 
   #viewfinder { flex: 1; position: relative; width: 100%; background: #000; overflow: hidden; }
-  video { position: absolute; top: 0; left: 0; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; }
+  video { position: absolute; top: 0; left: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
   canvas { width: 100%; height: 100%; object-fit: cover; display: block; }
   #viewfinder.mirror canvas { transform: scaleX(-1); }
 
-  /* ---------- HUD overlay ---------- */
-  #hud {
-    position: absolute; top: 0; left: 0; right: 0; z-index: 5;
-    padding: 10px 14px 8px;
-    padding-top: calc(10px + env(safe-area-inset-top));
-    background: linear-gradient(to bottom, rgba(10,13,10,0.75), rgba(10,13,10,0));
-    pointer-events: none;
-  }
+  /* ---------- HUD 指示 ---------- */
+  #hud { position: absolute; top: 0; left: 0; right: 0; z-index: 5; padding: calc(10px + env(safe-area-inset-top)) 14px 8px; background: linear-gradient(to bottom, rgba(10,13,10,0.85), transparent); pointer-events: none; }
   .hud-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
   .hud-species { font-family: var(--serif); font-style: italic; font-size: 16px; color: var(--paper); }
-  .hud-live { font-size: 9px; letter-spacing: 0.12em; color: var(--phosphor); display: flex; align-items: center; gap: 4px; }
-  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--phosphor); display: inline-block; animation: blink 1.6s infinite; }
-  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
-  .hud-data { margin-top: 4px; font-size: 10.5px; letter-spacing: 0.01em; color: var(--amber); line-height: 1.5; }
-  .hud-note { margin-top: 2px; font-size: 9.5px; color: var(--paper-dim); line-height: 1.5; }
+  .hud-data { margin-top: 4px; font-size: 11px; color: var(--amber); line-height: 1.5; }
+  .hud-note { margin-top: 2px; font-size: 9px; color: var(--paper-dim); line-height: 1.5; }
+  #flipBtn { position: absolute; top: calc(12px + env(safe-area-inset-top)); right: 12px; z-index: 6; width: 38px; height: 38px; border-radius: 50%; background: rgba(10,13,10,0.55); border: 1px solid var(--slate); color: var(--paper); font-size: 18px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
 
-  #flipBtn {
-    position: absolute; top: calc(12px + env(safe-area-inset-top)); right: 12px; z-index: 6;
-    width: 38px; height: 38px; border-radius: 50%;
-    background: rgba(10,13,10,0.55); border: 1px solid var(--slate);
-    color: var(--paper); font-size: 18px; line-height: 1;
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer;
-  }
+  /* ---------- 雙層控制列 ---------- */
+  #ui-panel { display: flex; flex-direction: column; background: var(--ink-2); border-top: 1px solid var(--slate); z-index: 5; padding-bottom: env(safe-area-inset-bottom); }
+  
+  /* 上層：主群組 */
+  #cat-bar { display: flex; gap: 4px; padding: 8px 10px; border-bottom: 1px solid #1a2018; overflow-x: auto; scrollbar-width: none; }
+  #cat-bar::-webkit-scrollbar { display: none; }
+  .cat-btn { flex: 0 0 auto; padding: 8px 16px; font-family: var(--mono); font-size: 12px; color: var(--paper-dim); background: transparent; border: 1px solid transparent; cursor: pointer; }
+  .cat-btn.active { color: var(--phosphor); border-bottom: 2px solid var(--phosphor); }
 
-  /* ---------- control bar ---------- */
-  #controls {
-    background: var(--ink-2);
-    display: flex; gap: 6px; padding: 10px 10px;
-    padding-bottom: calc(10px + env(safe-area-inset-bottom));
-    border-top: 1px solid var(--slate);
-    z-index: 5;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-  #controls::-webkit-scrollbar { display: none; }
-  .mode-btn {
-    flex: 0 0 72px; /* Fixed width for swipeability */
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 4px; padding: 10px 2px; border: 1px solid var(--slate); border-radius: 4px;
-    background: transparent; color: var(--paper-dim);
-    font-family: var(--mono); font-size: 13px; font-weight: 700;
-    cursor: pointer; touch-action: manipulation;
-  }
-  .mode-btn span {
-    font-size: 9px; font-weight: 400; letter-spacing: 0.04em; color: inherit; opacity: 0.7;
-    font-family: var(--mono);
-  }
-  .mode-btn.active { background: var(--phosphor); border-color: var(--phosphor); color: #04140a; }
-  .mode-btn.active span { color: #0a2b0f; opacity: 0.85; }
+  /* 下層：次分類 */
+  #sub-bar { display: flex; gap: 6px; padding: 10px; overflow-x: auto; scrollbar-width: none; }
+  #sub-bar::-webkit-scrollbar { display: none; }
+  .sub-btn { flex: 0 0 82px; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 2px; border: 1px solid var(--slate); border-radius: 4px; background: transparent; color: var(--paper-dim); font-family: var(--mono); font-size: 13px; font-weight: 700; cursor: pointer; }
+  .sub-btn span { font-size: 9px; font-weight: 400; color: inherit; opacity: 0.7; }
+  .sub-btn.active { background: var(--phosphor); border-color: var(--phosphor); color: #04140a; }
+  .sub-btn.active span { color: #0a2b0f; opacity: 0.85; }
 </style>
 </head>
 <body>
 
   <div id="boot">
     <div class="boot-inner">
-      <div class="boot-eyebrow">COMPARATIVE VISUAL PERCEPTION INSTRUMENT</div>
       <h1>Umwelt</h1>
-      <p class="boot-sub">基底光學神經矩陣計算。即時模擬人類色覺異常、犬貓雙色視覺、蛇類紅外感應與昆蟲複眼/UV等跨物種視覺經驗。</p>
-      <button id="startBtn">啟動相機 →</button>
+      <p class="boot-sub">生物光學文獻模擬系統・UV / IR 光譜重構</p>
+      <button id="startBtn">啟動相機感測 →</button>
       <p class="boot-msg" id="bootMsg"></p>
-      <div class="boot-refs">REF — Neitz 1989 · Peichl 2005 · Briscoe 2001 · OpenCV Matrices</div>
     </div>
   </div>
 
@@ -125,25 +77,21 @@
       <video id="webcam" autoplay playsinline muted></video>
       <canvas id="canvas"></canvas>
       <div id="hud">
-        <div class="hud-row">
-          <span class="hud-species" id="hudSpecies">Homo sapiens</span>
-          <span class="hud-live"><i class="dot"></i>LIVE</span>
-        </div>
+        <div class="hud-row"><span class="hud-species" id="hudSpecies"></span></div>
         <div class="hud-data" id="hudData"></div>
         <div class="hud-note" id="hudNote"></div>
       </div>
-      <button id="flipBtn" aria-label="切換鏡頭">⟲</button>
+      <button id="flipBtn">⟲</button>
     </div>
 
-    <!-- Scrollable Control Bar -->
-    <div id="controls">
-      <button class="mode-btn active" data-mode="human">正常<span>人類</span></button>
-      <button class="mode-btn" data-mode="human-cb">色盲<span>人類異常</span></button>
-      <button class="mode-btn" data-mode="dogcat">雙色<span>貓狗</span></button>
-      <button class="mode-btn" data-mode="bee">蜜標<span>蜜蜂</span></button>
-      <button class="mode-btn" data-mode="fly">複眼<span>蒼蠅</span></button>
-      <button class="mode-btn" data-mode="mosquito">熱感<span>蚊子</span></button>
-      <button class="mode-btn" data-mode="snake">紅外<span>蛇類</span></button>
+    <div id="ui-panel">
+      <div id="cat-bar">
+        <button class="cat-btn active" data-cat="human">人類群集</button>
+        <button class="cat-btn" data-cat="dogcat">犬貓群集</button>
+        <button class="cat-btn" data-cat="insect">昆蟲群集</button>
+        <button class="cat-btn" data-cat="snake">蛇類群集</button>
+      </div>
+      <div id="sub-bar"></div>
     </div>
   </div>
 
@@ -151,120 +99,166 @@
 (function(){
   "use strict";
 
-  const SPECIES = {
-    'human': { name: "Homo sapiens", data: "光譜 400–700nm・三色視覺", note: "基準人類正常視力矩陣" },
-    'human-cb': { name: "Deuteranopia", data: "綠色盲 (M-cone缺失)・色覺偏差", note: "紅綠混淆為黃棕色，無模糊（嚴格科學）" },
-    'dogcat': { name: "Carnivora (犬/貓)", data: "雙色視覺・缺乏長波(紅)感光", note: "僅含短波(藍)與中波(黃)光學矩陣，解析度稍降" },
-    'bee': { name: "Apis mellifera (蜜蜂)", data: "紫外(UV)～藍～綠・三色視覺", note: "紅色轉暗，藍/紫外波段提亮模擬「花蜜標記」" },
-    'fly': { name: "Musca domestica (蒼蠅)", data: "離散成像・複眼小眼(Ommatidia)陣列", note: "高動態低解析網格，色彩向藍綠偏移" },
-    'mosquito': { name: "Culicidae (蚊)", data: "低空間解析・二氧化碳與熱源感測", note: "極低解析度，明度映射為暗紅熱源追蹤模型" },
-    'snake': { name: "Crotalinae (響尾蛇)", data: "頰窩(Pit organ)紅外線熱輻射感知", note: "可見光極弱，100% 依賴 Ironbow 熱成像疊加" }
+  // 科學文獻數據與光學特徵庫
+  const DB = {
+    human: [
+      { id: 'h-norm', label: '正常三色', sub: '標準光譜', name: 'Homo sapiens (Normal)', data: '光譜 400-700nm・高解析度', note: 'Viénot 1999 基準模型：L/M/S 視錐細胞健全' },
+      { id: 'h-prot', label: '紅色盲', sub: 'Protanopia', name: 'Homo sapiens (Protanopia)', data: 'L-Cone 缺失・紅色識別障礙', note: 'Viénot 1999 轉換矩陣：長波光譜壓縮' },
+      { id: 'h-deut', label: '綠色盲', sub: 'Deuteranopia', name: 'Homo sapiens (Deuteranopia)', data: 'M-Cone 缺失・綠色識別障礙', note: 'Viénot 1999 轉換矩陣：中波光譜混淆' },
+      { id: 'h-trit', label: '藍色盲', sub: 'Tritanopia', name: 'Homo sapiens (Tritanopia)', data: 'S-Cone 缺失・藍黃色覺異常', note: 'Viénot 1999 轉換矩陣：短波光譜位移' },
+      { id: 'h-achr', label: '全色盲', sub: 'Achromatopsia', name: 'Homo sapiens (Achromatopsia)', data: '無視錐細胞・僅桿狀細胞作用', note: '僅保留灰階亮度矩陣 (Luminance)' }
+    ],
+    dogcat: [
+      { id: 'd-dog', label: '犬類', sub: 'Canis', name: 'Canis lupus familiaris', data: '藍黃雙色覺・視力 20/75', note: 'Peichl 2005：缺乏紅綠感受體，動態敏銳度高' },
+      { id: 'c-cat', label: '貓類', sub: 'Felis', name: 'Felis catus', data: '藍黃雙色覺・極低色彩飽和', note: 'Gunter 1975：極高桿細胞密度（夜視），極低解析度 20/150' }
+    ],
+    insect: [
+      { id: 'i-bee', label: '蜜蜂', sub: 'Apis', name: 'Apis mellifera', data: 'UV-藍-綠三色覺・花蜜標記', note: 'Menzel & Backhaus 1989：濾除紅光，強化紫外光（UV）反差' },
+      { id: 'i-fly', label: '蒼蠅', sub: 'Musca', name: 'Musca domestica', data: '複眼透鏡陣列・R7/R8 紫外線受體', note: 'Hardie 1986 / Land 1997：六角晶體折射與高閃爍融合率模擬' },
+      { id: 'i-mosq', label: '蚊子', sub: 'Culicidae', name: 'Culicidae', data: '熱源與高對比黑白輪廓', note: 'Muir 1992：極低解析空間，依賴高對比邊緣與熱源感應' }
+    ],
+    snake: [
+      { id: 's-viper', label: '響尾蛇', sub: 'Viperidae', name: 'Crotalinae (Pit Organ)', data: '頰窩紅外線熱輻射感知 (IR)', note: 'Goris 2011：利用 TRPA1 通道將 5-15um 熱輻射轉換為 Ironbow 假色' }
+    ]
   };
 
   const video = document.getElementById('webcam');
   const canvas = document.getElementById('canvas');
-  const ctx = canvas.getContext('2d', { alpha:false, willReadFrequently:true });
-  const viewfinder = document.getElementById('viewfinder');
-  const bootEl = document.getElementById('boot');
-  const startBtn = document.getElementById('startBtn');
-  
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
   const offC = document.createElement('canvas');
-  const offCtx = offC.getContext('2d', { alpha:false, willReadFrequently:true });
+  const offCtx = offC.getContext('2d', { willReadFrequently: true });
 
-  let currentMode = 'human';
-  let facing = 'environment';
-  let stream = null;
-  let vW = 0, vH = 0;
-  let rafId = null;
-  let running = false;
+  let curCat = 'human', curMode = 'h-norm';
+  let stream = null, vW = 0, vH = 0, rafId = null, running = false;
+  let flyGeom = null;
 
   function clamp(v){ return v<0?0:(v>255?255:v); }
 
-  function setHud(mode){
-    document.getElementById('hudSpecies').textContent = SPECIES[mode].name;
-    document.getElementById('hudData').textContent = SPECIES[mode].data;
-    document.getElementById('hudNote').textContent = SPECIES[mode].note;
+  function updateHUD(){
+    const conf = DB[curCat].find(m => m.id === curMode);
+    document.getElementById('hudSpecies').textContent = conf.name;
+    document.getElementById('hudData').textContent = conf.data;
+    document.getElementById('hudNote').textContent = conf.note;
   }
 
-  /* --- 科學矩陣處理函式 --- */
-  function renderMatrix(pW, matrixType) {
-    const pH = Math.max(1, Math.floor(pW * (vH/vW)));
-    offC.width = pW; offC.height = pH;
-    offCtx.drawImage(video, 0, 0, pW, pH);
-    const img = offCtx.getImageData(0,0,pW,pH);
+  function buildSubMenu(cat){
+    const subBar = document.getElementById('sub-bar');
+    subBar.innerHTML = '';
+    DB[cat].forEach(m => {
+      const btn = document.createElement('button');
+      btn.className = 'sub-btn' + (m.id === curMode ? ' active' : '');
+      btn.innerHTML = `${m.label}<span>${m.sub}</span>`;
+      btn.onclick = () => {
+        curMode = m.id;
+        document.querySelectorAll('.sub-btn').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        updateHUD();
+      };
+      subBar.appendChild(btn);
+    });
+  }
+
+  document.querySelectorAll('.cat-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      curCat = btn.dataset.cat;
+      curMode = DB[curCat][0].id;
+      buildSubMenu(curCat);
+      updateHUD();
+    });
+  });
+
+  /* 矩陣轉換與光學處理引擎 */
+  function processOpticalMatrix(resW, modeId){
+    const resH = Math.max(1, Math.floor(resW * (vH/vW)));
+    offC.width = resW; offC.height = resH;
+    offCtx.drawImage(video, 0, 0, resW, resH);
+    const img = offCtx.getImageData(0,0,resW,resH);
     const d = img.data;
 
     for(let i=0; i<d.length; i+=4) {
       let r = d[i], g = d[i+1], b = d[i+2];
 
-      if(matrixType === 'deuteranopia') {
-        d[i]   = clamp(r*0.625 + g*0.375);
-        d[i+1] = clamp(r*0.700 + g*0.300);
-        d[i+2] = b;
-      } 
-      else if(matrixType === 'dogcat') {
-        let lum = r*0.4 + g*0.6; // 紅綠對應至黃灰色調
-        d[i] = lum; d[i+1] = lum; d[i+2] = r*0.2 + b*0.8;
-      }
-      else if(matrixType === 'bee') {
-        // UV 模擬：濾除紅光，藍光提亮並與綠光形成特殊紫/白對比
-        let fakeUV = clamp(b*1.2 - r*0.2);
-        d[i] = fakeUV * 0.7; // 人眼看到的紫色端暗示 UV
-        d[i+1] = g * 0.8;
-        d[i+2] = b * 1.5;
-      }
-      else if(matrixType === 'mosquito') {
-        // 熱源模擬（暗紅/高對比）
-        let lum = r*0.3 + g*0.59 + b*0.11;
-        d[i] = clamp(lum * 1.5); 
-        d[i+1] = clamp(lum * 0.2); 
-        d[i+2] = clamp(lum * 0.2);
-      }
-      else if(matrixType === 'snake') {
-        // Ironbow 熱輻射
-        let lum = r*0.3 + g*0.59 + b*0.11;
-        d[i]   = lum > 128 ? 255 : lum * 2;
-        d[i+1] = lum < 64 ? 0 : (lum < 192 ? (lum - 64) * 2 : 255);
-        d[i+2] = lum < 128 ? 0 : (lum - 128) * 2;
+      switch(modeId) {
+        case 'h-prot': // 紅色盲
+          d[i] = clamp(0.567*g + 0.433*b); d[i+1] = clamp(0.558*g + 0.442*b); break;
+        case 'h-deut': // 綠色盲
+          d[i] = clamp(0.625*g + 0.375*b); d[i+1] = clamp(0.700*g + 0.300*b); break;
+        case 'h-trit': // 藍色盲
+          d[i+1] = clamp(0.95*r + 0.05*g); d[i+2] = clamp(0.433*r + 0.567*g); break;
+        case 'h-achr': // 全色盲
+          let lum = r*0.299 + g*0.587 + b*0.114;
+          d[i] = d[i+1] = d[i+2] = lum;
+          break;
+        case 'd-dog': // 犬類藍黃雙色
+        case 'c-cat': // 貓類雙色加低飽和
+          let y = r*0.4 + g*0.6; 
+          d[i] = d[i+1] = y;
+          d[i+2] = modeId === 'c-cat' ? (r*0.1 + b*0.5) : (r*0.2 + b*0.8);
+          break;
+        case 'i-bee': // 蜜蜂 UV 光譜與紅光過濾
+          let uv = clamp(b*1.4 - r*0.4);
+          d[i] = uv * 0.6; d[i+1] = g * 0.9; d[i+2] = b * 1.6;
+          break;
+        case 'i-mosq': // 蚊子高對比黑白與熱源追蹤
+          let mLum = r*0.299 + g*0.587 + b*0.114;
+          let threshold = mLum > 110 ? 255 : 0;
+          d[i] = threshold ? 255 : 20;
+          d[i+1] = threshold ? 50 : 10;
+          d[i+2] = threshold ? 20 : 10;
+          break;
+        case 's-viper': // 響尾蛇頰窩紅外線熱成像 (Ironbow)
+          let t = r*0.299 + g*0.587 + b*0.114;
+          d[i]   = t > 128 ? 255 : t * 2;
+          d[i+1] = t < 64 ? 0 : (t < 192 ? (t - 64) * 2 : 255);
+          d[i+2] = t < 128 ? 0 : (t - 128) * 2;
+          break;
       }
     }
-    
     offCtx.putImageData(img, 0, 0);
-    // 開啟/關閉平滑以控制銳利度或像素感
-    ctx.imageSmoothingEnabled = (matrixType !== 'mosquito' && matrixType !== 'snake');
-    ctx.drawImage(offC, 0, 0, pW, pH, 0, 0, vW, vH);
+    ctx.imageSmoothingEnabled = !(modeId === 'i-mosq' || modeId === 's-viper');
+    ctx.drawImage(offC, 0, 0, resW, resH, 0, 0, vW, vH);
   }
 
-  // 複眼網格繪製 (蒼蠅)
-  let hexGeom = null;
-  function renderFly(){
-    if(!hexGeom || hexGeom.vW!==vW){
-      const r = vW / 45; // 網格密度
-      hexGeom = { 
-        r, colStep: Math.sqrt(3)*r, rowStep: 1.5*r, 
-        cols: Math.ceil(vW/(Math.sqrt(3)*r))+2, rows: Math.ceil(vH/(1.5*r))+2, vW 
-      };
+  /* 蒼蠅複眼光學引擎（結合 UV 受體與六角透鏡折射） */
+  function processFlyEye(){
+    if(!flyGeom || flyGeom.vW !== vW){
+      const r = vW / 36; 
+      flyGeom = { r, cStep: Math.sqrt(3)*r, rStep: 1.5*r, cols: Math.ceil(vW/(Math.sqrt(3)*r))+2, rows: Math.ceil(vH/(1.5*r))+2, vW };
     }
-    const { r, colStep, rowStep, cols, rows } = hexGeom;
+    const { r, cStep, rStep, cols, rows } = flyGeom;
     offC.width = cols; offC.height = rows;
     offCtx.drawImage(video, 0, 0, cols, rows);
-    const img = offCtx.getImageData(0,0,cols,rows).data;
+    const imgData = offCtx.getImageData(0,0,cols,rows).data;
 
-    ctx.fillStyle = '#000'; ctx.fillRect(0,0,vW,vH);
+    ctx.fillStyle = '#030503'; ctx.fillRect(0,0,vW,vH);
 
     for(let cy=0; cy<rows; cy++){
-      const rowOffset = (cy % 2) ? colStep/2 : 0;
+      const offX = (cy % 2) ? cStep/2 : 0;
       for(let cx=0; cx<cols; cx++){
         const idx = (cy*cols+cx)*4;
-        const rr=img[idx], gg=img[idx+1], bb=img[idx+2];
-        const x = cx*colStep + rowOffset, y = cy*rowStep;
+        const oR = imgData[idx], oG = imgData[idx+1], oB = imgData[idx+2];
         
+        // 蒼蠅 R7/R8 受體模擬：UV 增強、紅光壓制
+        let uvShift = Math.max(0, oB - oR);
+        let cR = oG * 0.1; 
+        let cG = oG * 0.9 + uvShift * 0.3;
+        let cB = oB * 0.8 + uvShift * 0.8;
+
+        const x = cx*cStep + offX, y = cy*rStep;
         ctx.beginPath();
-        for(let i=0;i<6;i++){
+        for(let i=0; i<6; i++){
           const ang = Math.PI/180 * (60*i - 30);
-          ctx[i===0?'moveTo':'lineTo'](x + r*0.94*Math.cos(ang), y + r*0.94*Math.sin(ang));
+          ctx[i===0?'moveTo':'lineTo'](x + r*0.88*Math.cos(ang), y + r*0.88*Math.sin(ang));
         }
-        ctx.fillStyle = `rgb(${clamp(rr*0.2+gg*0.2)}, ${clamp(gg)}, ${clamp(bb+40)})`;
+        ctx.fillStyle = `rgb(${clamp(cR)}, ${clamp(cG)}, ${clamp(cB)})`;
+        ctx.fill();
+
+        // 晶體曲面高光
+        ctx.beginPath();
+        ctx.arc(x - r*0.25, y - r*0.25, r*0.16, 0, Math.PI*2);
+        ctx.fillStyle = `rgba(255, 255, 255, 0.22)`;
         ctx.fill();
       }
     }
@@ -275,57 +269,56 @@
     if(video.readyState < video.HAVE_CURRENT_DATA) { rafId = requestAnimationFrame(loop); return; }
     
     try {
-      if (currentMode === 'human') {
+      if (curMode === 'h-norm') {
         ctx.imageSmoothingEnabled = true;
         ctx.drawImage(video, 0, 0, vW, vH);
-      } else if (currentMode === 'human-cb') {
-        renderMatrix(480, 'deuteranopia'); // 高解析無模糊
-      } else if (currentMode === 'dogcat') {
-        renderMatrix(256, 'dogcat'); // 稍微降解析
-      } else if (currentMode === 'bee') {
-        renderMatrix(320, 'bee');
-      } else if (currentMode === 'fly') {
-        renderFly();
-      } else if (currentMode === 'mosquito') {
-        renderMatrix(48, 'mosquito'); // 極低解析
-      } else if (currentMode === 'snake') {
-        renderMatrix(64, 'snake'); // 極低解析
+      } else if (curMode.startsWith('h-')) {
+        processOpticalMatrix(vW, curMode);
+      } else if (curMode === 'd-dog') {
+        processOpticalMatrix(Math.floor(vW*0.6), curMode);
+      } else if (curMode === 'c-cat') {
+        processOpticalMatrix(Math.floor(vW*0.3), curMode);
+      } else if (curMode === 'i-bee') {
+        processOpticalMatrix(Math.floor(vW*0.4), curMode);
+      } else if (curMode === 'i-fly') {
+        processFlyEye();
+      } else if (curMode === 'i-mosq') {
+        processOpticalMatrix(56, curMode);
+      } else if (curMode === 's-viper') {
+        processOpticalMatrix(72, curMode);
       }
     } catch(e) {}
     
     rafId = requestAnimationFrame(loop);
   }
 
+  let facing = 'environment';
   async function openCamera(mode){
     if(stream) stream.getTracks().forEach(t=>t.stop());
     stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: { ideal: mode }, width: { ideal: 960 }, height: { ideal: 720 } },
       audio: false
     });
-    
     video.srcObject = stream;
-    video.playsInline = true;
-    
-    await new Promise(r => { video.onloadedmetadata = r; setTimeout(r, 1200); });
+    await new Promise(r => { video.onloadedmetadata = r; setTimeout(r, 500); });
     await video.play();
-
     vW = video.videoWidth || 960; vH = video.videoHeight || 540;
     canvas.width = vW; canvas.height = vH;
-    hexGeom = null;
-    viewfinder.classList.toggle('mirror', mode === 'user');
+    flyGeom = null;
+    document.getElementById('viewfinder').classList.toggle('mirror', mode === 'user');
   }
 
-  startBtn.addEventListener('click', async () => {
-    startBtn.textContent = '啟動中…';
+  document.getElementById('startBtn').addEventListener('click', async () => {
+    document.getElementById('startBtn').textContent = '初始化光學中…';
     try {
       await openCamera(facing);
-      bootEl.style.display = 'none';
+      document.getElementById('boot').style.display = 'none';
       document.getElementById('app').hidden = false;
-      running = true;
-      loop();
+      buildSubMenu(curCat); updateHUD();
+      running = true; loop();
     } catch(e) {
-      document.getElementById('bootMsg').textContent = '相機權限遭拒或無法存取。請確認設定。';
-      startBtn.textContent = '重試';
+      document.getElementById('bootMsg').textContent = '相機啟動失敗，請確認隱私權限。';
+      document.getElementById('startBtn').textContent = '重試';
     }
   });
 
@@ -334,22 +327,11 @@
     await openCamera(facing);
   });
 
-  document.querySelectorAll('.mode-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      currentMode = btn.dataset.mode;
-      document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      setHud(currentMode);
-      btn.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
-    });
-  });
-
   document.addEventListener('visibilitychange', () => {
     if(document.hidden) { running = false; cancelAnimationFrame(rafId); }
     else if(video.readyState >= 2 && !running) { running = true; loop(); }
   });
 
-  setHud('human');
 })();
 </script>
 </body>
