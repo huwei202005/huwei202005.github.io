@@ -3,52 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>生物光學視覺模擬器 v1.1.4</title>
+    <title>科學動物視角模擬器</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-touch-callout: none; }
-        body { background: #000; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; overscroll-behavior: none; }
+        body { background: #000; color: #fff; font-family: -apple-system, sans-serif; height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; overscroll-behavior: none; }
         
-        #header-bar { background: rgba(15, 15, 15, 0.95); padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #222; z-index: 10; }
-        #header-bar h1 { font-size: 14px; font-weight: 600; color: #ddd; letter-spacing: 0.5px; }
-        #header-bar .version { font-size: 11px; color: #666; background: #222; padding: 2px 6px; border-radius: 4px; }
-
-        #viewfinder { flex: 1; position: relative; width: 100%; overflow: hidden; background: #000; display: flex; justify-content: center; align-items: center; }
-        
-        /* 隱藏但持續驅動硬體解碼的 video 元素 */
+        #viewfinder { flex: 1; position: relative; width: 100%; background: #000; display: flex; justify-content: center; align-items: center; }
         video { position: absolute; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; }
         canvas { width: 100%; height: 100%; object-fit: cover; display: block; }
 
-        #controls { background: rgba(15, 15, 15, 0.98); display: flex; gap: 8px; padding: 12px 16px; z-index: 10; padding-bottom: calc(12px + env(safe-area-inset-bottom)); box-shadow: 0 -4px 16px rgba(0,0,0,0.8); }
-        button { flex: 1; padding: 14px 4px; border: none; border-radius: 10px; background: #222; color: #888; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s ease; -webkit-tap-highlight-color: transparent; }
-        button.active { background: #f59e0b; color: #000; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(245,158,11,0.3); }
+        #controls { background: #111; display: flex; gap: 8px; padding: 12px 16px; z-index: 10; padding-bottom: calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid #333; }
+        button { flex: 1; padding: 14px 4px; border: none; border-radius: 8px; background: #222; color: #888; font-size: 14px; font-weight: bold; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+        button.active { background: #eab308; color: #000; }
         
-        #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #888; font-size: 14px; text-align: center; pointer-events: none; }
+        #status { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #aaa; font-size: 14px; pointer-events: none; }
     </style>
 </head>
 <body>
-    <div id="header-bar">
-        <h1>生物光學視覺模擬</h1>
-        <span class="version">v1.1.4</span>
-    </div>
-
     <div id="viewfinder">
         <video id="webcam" autoplay playsinline muted></video>
         <canvas id="canvas"></canvas>
-        <div id="loading">正在請求相機權限...</div>
+        <div id="status">啟動相機中...</div>
     </div>
 
     <div id="controls">
         <button class="active" onclick="setMode('human', this)">人類</button>
         <button onclick="setMode('dog', this)">貓狗</button>
-        <button onclick="setMode('snake', this)">蛇類熱視</button>
-        <button onclick="setMode('insect', this)">昆蟲複眼</button>
+        <button onclick="setMode('snake', this)">蛇類</button>
+        <button onclick="setMode('insect', this)">昆蟲</button>
     </div>
 
     <script>
         const video = document.getElementById('webcam');
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d', { alpha: false, willReadFrequently: true });
-        const loading = document.getElementById('loading');
+        const statusEl = document.getElementById('status');
         
         let currentMode = 'human';
         let reqId = null;
@@ -57,10 +46,10 @@
         const offC = document.createElement('canvas');
         const offCtx = offC.getContext('2d', { alpha: false, willReadFrequently: true });
 
-        async function initCamera() {
+        async function init() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: { ideal: "environment" }, width: { ideal: 960 }, height: { ideal: 540 } },
+                    video: { facingMode: { ideal: "environment" }, width: { ideal: 960 } },
                     audio: false
                 });
                 video.srcObject = stream;
@@ -70,23 +59,11 @@
                 vH = video.videoHeight || 540;
                 canvas.width = vW;
                 canvas.height = vH;
-                loading.style.display = 'none';
+                statusEl.style.display = 'none';
                 
                 loop();
-            } catch (err) {
-                try {
-                    const fallback = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-                    video.srcObject = fallback;
-                    await video.play();
-                    vW = video.videoWidth || 640;
-                    vH = video.videoHeight || 480;
-                    canvas.width = vW;
-                    canvas.height = vH;
-                    loading.style.display = 'none';
-                    loop();
-                } catch (e) {
-                    loading.innerText = "無法啟動相機，請確認瀏覽器權限或使用 HTTPS。";
-                }
+            } catch (e) {
+                statusEl.innerText = "相機存取失敗，請確認權限。";
             }
         }
 
@@ -101,8 +78,7 @@
                 ctx.drawImage(video, 0, 0, vW, vH);
             } 
             else if (currentMode === 'dog') {
-                // 手機效能優化：鎖定輕量解析度，精準還原雙色視覺矩陣
-                const pW = 220;
+                const pW = 256; 
                 const pH = Math.floor(pW * (vH / vW));
                 
                 offC.width = pW; offC.height = pH;
@@ -112,9 +88,9 @@
                 let d = img.data;
                 for (let i = 0; i < d.length; i += 4) {
                     let r = d[i], g = d[i+1], b = d[i+2];
-                    let y = 0.4 * r + 0.6 * g;
-                    let bl = 0.2 * r + 0.8 * b;
-                    d[i] = y; d[i+1] = y; d[i+2] = bl;
+                    let yellow_gray = 0.4 * r + 0.6 * g;
+                    let blue = 0.2 * r + 0.8 * b;
+                    d[i] = yellow_gray; d[i+1] = yellow_gray; d[i+2] = blue;
                 }
                 offCtx.putImageData(img, 0, 0);
 
@@ -122,8 +98,7 @@
                 ctx.drawImage(offC, 0, 0, pW, pH, 0, 0, vW, vH);
             } 
             else if (currentMode === 'snake') {
-                // 蛇類熱視：極低解析度紅外線熱譜融合
-                const pW = 70;
+                const pW = 64;
                 const pH = Math.floor(pW * (vH / vW));
                 
                 offC.width = pW; offC.height = pH;
@@ -143,7 +118,6 @@
                 ctx.drawImage(offC, 0, 0, pW, pH, 0, 0, vW, vH);
             } 
             else if (currentMode === 'insect') {
-                // 昆蟲複眼：小眼點陣與網格交疊
                 const pW = 90;
                 const pH = Math.floor(pW * (vH / vW));
 
@@ -154,7 +128,7 @@
                 ctx.imageSmoothingEnabled = false;
                 ctx.drawImage(offC, 0, 0, pW, pH, 0, 0, vW, vH);
 
-                ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
+                ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
                 const stepX = vW / pW;
                 const stepY = vH / pH;
                 for (let x = 0; x <= vW; x += stepX) ctx.fillRect(x, 0, 1, vH);
@@ -175,7 +149,7 @@
             else if (video.readyState >= video.HAVE_CURRENT_DATA) loop();
         });
 
-        initCamera();
+        init();
     </script>
 </body>
 </html>
