@@ -99,18 +99,17 @@
 (function(){
   "use strict";
 
-  // 科學文獻數據與光學特徵庫
   const DB = {
     human: [
       { id: 'h-norm', label: '正常三色', sub: '標準光譜', name: 'Homo sapiens (Normal)', data: '光譜 400-700nm・高解析度', note: 'Viénot 1999 基準模型：L/M/S 視錐細胞健全' },
       { id: 'h-prot', label: '紅色盲', sub: 'Protanopia', name: 'Homo sapiens (Protanopia)', data: 'L-Cone 缺失・紅色識別障礙', note: 'Viénot 1999 轉換矩陣：長波光譜壓縮' },
-      { id: 'h-deut', label: '綠色盲', sub: 'Deuteranopia', name: 'Homo sapiens (Deuteranopia)', data: 'M-Cone 缺失・綠色識別障礙', note: 'Viénot 1999 轉換矩陣：中波光譜混淆' },
-      { id: 'h-trit', label: '藍色盲', sub: 'Tritanopia', name: 'Homo sapiens (Tritanopia)', data: 'S-Cone 缺失・藍黃色覺異常', note: 'Viénot 1999 轉換矩陣：短波光譜位移' },
+      { id: 'h-deut', label: '綠色盲', sub: 'Deuteranopia', name: 'Homo sapiens (Deuteranopia)', data: 'M-Cone 缺失・綠色識別障礙', note: 'Viénot 1999 修正模型：綠色光譜轉譯為黃褐色/灰黃' },
+      { id: 'h-trit', label: '藍色盲', sub: 'Tritanopia', name: 'Homo sapiens (Tritanopia)', data: 'S-Cone 缺失・藍黃色覺軸崩潰', note: 'Viénot 1999 修正模型：藍色光譜轉譯為青綠色與灰階' },
       { id: 'h-achr', label: '全色盲', sub: 'Achromatopsia', name: 'Homo sapiens (Achromatopsia)', data: '無視錐細胞・僅桿狀細胞作用', note: '僅保留灰階亮度矩陣 (Luminance)' }
     ],
     dogcat: [
-      { id: 'd-dog', label: '犬類', sub: 'Canis', name: 'Canis lupus familiaris', data: '藍黃雙色覺・視力 20/75', note: 'Peichl 2005：缺乏紅綠感受體，動態敏銳度高' },
-      { id: 'c-cat', label: '貓類', sub: 'Felis', name: 'Felis catus', data: '藍黃雙色覺・極低色彩飽和', note: 'Gunter 1975：極高桿細胞密度（夜視），極低解析度 20/150' }
+      { id: 'd-dog', label: '犬類', sub: 'Canis', name: 'Canis lupus familiaris', data: '藍黃雙色覺・視力 20/75', note: 'Peichl 2005：雙色覺，視銳度約人類 1/3' },
+      { id: 'c-cat', label: '貓類', sub: 'Felis', name: 'Felis catus', data: '藍黃雙色覺・視力 20/150', note: 'Gunter 1975 / Nilsson：雙色覺，日間視銳度較犬略低' }
     ],
     insect: [
       { id: 'i-bee', label: '蜜蜂', sub: 'Apis', name: 'Apis mellifera', data: 'UV-藍-綠三色覺・花蜜標記', note: 'Menzel & Backhaus 1989：濾除紅光，強化紫外光（UV）反差' },
@@ -182,20 +181,29 @@
 
       switch(modeId) {
         case 'h-prot': // 紅色盲
-          d[i] = clamp(0.567*g + 0.433*b); d[i+1] = clamp(0.558*g + 0.442*b); break;
+          d[i]   = clamp(0.56667 * g + 0.43333 * b);
+          d[i+1] = clamp(0.55833 * g + 0.44167 * b);
+          d[i+2] = b;
+          break;
         case 'h-deut': // 綠色盲
-          d[i] = clamp(0.625*g + 0.375*b); d[i+1] = clamp(0.700*g + 0.300*b); break;
+          d[i]   = clamp(0.625 * r + 0.375 * b);
+          d[i+1] = clamp(0.700 * r + 0.300 * b);
+          d[i+2] = b;
+          break;
         case 'h-trit': // 藍色盲
-          d[i+1] = clamp(0.95*r + 0.05*g); d[i+2] = clamp(0.433*r + 0.567*g); break;
+          d[i]   = clamp(0.95 * r + 0.05 * g);
+          d[i+1] = clamp(0.433 * r + 0.567 * g + 0.1 * b);
+          d[i+2] = clamp(0.475 * r + 0.525 * b);
+          break;
         case 'h-achr': // 全色盲
           let lum = r*0.299 + g*0.587 + b*0.114;
           d[i] = d[i+1] = d[i+2] = lum;
           break;
-        case 'd-dog': // 犬類藍黃雙色
-        case 'c-cat': // 貓類雙色加低飽和
+        case 'd-dog': // 犬類藍黃雙色覺
+        case 'c-cat': // 貓類藍黃雙色覺
           let y = r*0.4 + g*0.6; 
           d[i] = d[i+1] = y;
-          d[i+2] = modeId === 'c-cat' ? (r*0.1 + b*0.5) : (r*0.2 + b*0.8);
+          d[i+2] = modeId === 'c-cat' ? (r*0.15 + b*0.75) : (r*0.2 + b*0.8);
           break;
         case 'i-bee': // 蜜蜂 UV 光譜與紅光過濾
           let uv = clamp(b*1.4 - r*0.4);
@@ -221,7 +229,7 @@
     ctx.drawImage(offC, 0, 0, resW, resH, 0, 0, vW, vH);
   }
 
-  /* 蒼蠅複眼光學引擎（結合 UV 受體與六角透鏡折射） */
+  /* 蒼蠅複眼光學引擎 */
   function processFlyEye(){
     if(!flyGeom || flyGeom.vW !== vW){
       const r = vW / 36; 
@@ -240,7 +248,6 @@
         const idx = (cy*cols+cx)*4;
         const oR = imgData[idx], oG = imgData[idx+1], oB = imgData[idx+2];
         
-        // 蒼蠅 R7/R8 受體模擬：UV 增強、紅光壓制
         let uvShift = Math.max(0, oB - oR);
         let cR = oG * 0.1; 
         let cG = oG * 0.9 + uvShift * 0.3;
@@ -255,7 +262,6 @@
         ctx.fillStyle = `rgb(${clamp(cR)}, ${clamp(cG)}, ${clamp(cB)})`;
         ctx.fill();
 
-        // 晶體曲面高光
         ctx.beginPath();
         ctx.arc(x - r*0.25, y - r*0.25, r*0.16, 0, Math.PI*2);
         ctx.fillStyle = `rgba(255, 255, 255, 0.22)`;
@@ -275,9 +281,9 @@
       } else if (curMode.startsWith('h-')) {
         processOpticalMatrix(vW, curMode);
       } else if (curMode === 'd-dog') {
-        processOpticalMatrix(Math.floor(vW*0.6), curMode);
+        processOpticalMatrix(Math.floor(vW*0.45), curMode);
       } else if (curMode === 'c-cat') {
-        processOpticalMatrix(Math.floor(vW*0.3), curMode);
+        processOpticalMatrix(Math.floor(vW*0.35), curMode);
       } else if (curMode === 'i-bee') {
         processOpticalMatrix(Math.floor(vW*0.4), curMode);
       } else if (curMode === 'i-fly') {
