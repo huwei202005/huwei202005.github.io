@@ -2,38 +2,39 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>生物光學視覺模擬器 v1.1.3</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>生物光學視覺模擬器 v1.1.4</title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: #000; color: #fff; font-family: -apple-system, BlinkMacSystemFont, sans-serif; height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; overscroll-behavior: none; }
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-touch-callout: none; }
+        body { background: #000; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; overscroll-behavior: none; }
         
-        #header-bar { background: #111; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; z-index: 10; }
-        #header-bar h1 { font-size: 15px; font-weight: 500; letter-spacing: 1px; }
-        #header-bar .version { font-size: 12px; color: #888; }
+        #header-bar { background: rgba(15, 15, 15, 0.95); padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #222; z-index: 10; }
+        #header-bar h1 { font-size: 14px; font-weight: 600; color: #ddd; letter-spacing: 0.5px; }
+        #header-bar .version { font-size: 11px; color: #666; background: #222; padding: 2px 6px; border-radius: 4px; }
 
-        #viewfinder { flex: 1; position: relative; width: 100%; background: #000; }
-        video { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; } /* 隱藏但持續解碼 */
+        #viewfinder { flex: 1; position: relative; width: 100%; overflow: hidden; background: #000; display: flex; justify-content: center; align-items: center; }
+        
+        /* 隱藏但持續驅動硬體解碼的 video 元素 */
+        video { position: absolute; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; }
         canvas { width: 100%; height: 100%; object-fit: cover; display: block; }
 
-        #controls { padding: 16px; background: #111; display: flex; gap: 8px; z-index: 10; padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
-        button { flex: 1; padding: 14px 0; border: none; border-radius: 6px; background: #222; color: #888; font-size: 14px; font-weight: bold; cursor: pointer; transition: 0.2s; }
-        button.active { background: #eab308; color: #000; }
+        #controls { background: rgba(15, 15, 15, 0.98); display: flex; gap: 8px; padding: 12px 16px; z-index: 10; padding-bottom: calc(12px + env(safe-area-inset-bottom)); box-shadow: 0 -4px 16px rgba(0,0,0,0.8); }
+        button { flex: 1; padding: 14px 4px; border: none; border-radius: 10px; background: #222; color: #888; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s ease; -webkit-tap-highlight-color: transparent; }
+        button.active { background: #f59e0b; color: #000; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(245,158,11,0.3); }
         
-        #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #aaa; font-size: 14px; pointer-events: none; }
+        #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #888; font-size: 14px; text-align: center; pointer-events: none; }
     </style>
 </head>
 <body>
     <div id="header-bar">
-        <h1>生物視覺模擬</h1>
-        <span class="version">v1.1.3</span>
+        <h1>生物光學視覺模擬</h1>
+        <span class="version">v1.1.4</span>
     </div>
 
     <div id="viewfinder">
-        <!-- 確保 iOS Safari 支援 -->
         <video id="webcam" autoplay playsinline muted></video>
         <canvas id="canvas"></canvas>
-        <div id="loading">啟動相機中...</div>
+        <div id="loading">正在請求相機權限...</div>
     </div>
 
     <div id="controls">
@@ -53,28 +54,39 @@
         let reqId = null;
         let vW = 0, vH = 0;
 
-        // 離屏畫布：用以控制運算量與模擬生物視力
         const offC = document.createElement('canvas');
         const offCtx = offC.getContext('2d', { alpha: false, willReadFrequently: true });
 
-        async function init() {
+        async function initCamera() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: "environment", width: { ideal: 1280 } },
+                    video: { facingMode: { ideal: "environment" }, width: { ideal: 960 }, height: { ideal: 540 } },
                     audio: false
                 });
                 video.srcObject = stream;
                 await video.play();
 
-                vW = video.videoWidth;
-                vH = video.videoHeight;
+                vW = video.videoWidth || 960;
+                vH = video.videoHeight || 540;
                 canvas.width = vW;
                 canvas.height = vH;
                 loading.style.display = 'none';
                 
                 loop();
-            } catch (e) {
-                loading.innerText = "無法存取相機，請檢查權限。";
+            } catch (err) {
+                try {
+                    const fallback = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                    video.srcObject = fallback;
+                    await video.play();
+                    vW = video.videoWidth || 640;
+                    vH = video.videoHeight || 480;
+                    canvas.width = vW;
+                    canvas.height = vH;
+                    loading.style.display = 'none';
+                    loop();
+                } catch (e) {
+                    loading.innerText = "無法啟動相機，請確認瀏覽器權限或使用 HTTPS。";
+                }
             }
         }
 
@@ -89,9 +101,8 @@
                 ctx.drawImage(video, 0, 0, vW, vH);
             } 
             else if (currentMode === 'dog') {
-                // 科學事實：犬貓視力約為人類 20%，雙色視覺
-                // 效能優化：運算寬度鎖定 256px，陣列長度大幅縮減至約 3.6 萬，不耗 CPU
-                const pW = 256; 
+                // 手機效能優化：鎖定輕量解析度，精準還原雙色視覺矩陣
+                const pW = 220;
                 const pH = Math.floor(pW * (vH / vW));
                 
                 offC.width = pW; offC.height = pH;
@@ -99,26 +110,20 @@
                 
                 let img = offCtx.getImageData(0, 0, pW, pH);
                 let d = img.data;
-                
                 for (let i = 0; i < d.length; i += 4) {
                     let r = d[i], g = d[i+1], b = d[i+2];
-                    // 科學矩陣：紅綠色盲 (Protanopia/Deuteranopia 混和模型)
-                    let yellow_gray = 0.4 * r + 0.6 * g;
-                    let blue = 0.2 * r + 0.8 * b;
-                    
-                    d[i]   = yellow_gray;
-                    d[i+1] = yellow_gray;
-                    d[i+2] = blue;
+                    let y = 0.4 * r + 0.6 * g;
+                    let bl = 0.2 * r + 0.8 * b;
+                    d[i] = y; d[i+1] = y; d[i+2] = bl;
                 }
                 offCtx.putImageData(img, 0, 0);
 
-                ctx.imageSmoothingEnabled = true; // 視力模糊平滑化
+                ctx.imageSmoothingEnabled = true;
                 ctx.drawImage(offC, 0, 0, pW, pH, 0, 0, vW, vH);
             } 
             else if (currentMode === 'snake') {
-                // 科學事實：頰窩紅外線感測神經解析度極低，疊加於視覺中樞
-                // 效能優化：運算寬度鎖定 80px (高度馬賽克)
-                const pW = 80;
+                // 蛇類熱視：極低解析度紅外線熱譜融合
+                const pW = 70;
                 const pH = Math.floor(pW * (vH / vW));
                 
                 offC.width = pW; offC.height = pH;
@@ -126,34 +131,30 @@
                 
                 let img = offCtx.getImageData(0, 0, pW, pH);
                 let d = img.data;
-                
                 for (let i = 0; i < d.length; i += 4) {
                     let lum = d[i]*0.3 + d[i+1]*0.59 + d[i+2]*0.11;
-                    // Ironbow 熱譜轉換
                     d[i]   = lum > 128 ? 255 : lum * 2;
                     d[i+1] = lum < 64 ? 0 : (lum < 192 ? (lum - 64) * 2 : 255);
                     d[i+2] = lum < 128 ? 0 : (lum - 128) * 2;
                 }
                 offCtx.putImageData(img, 0, 0);
 
-                ctx.imageSmoothingEnabled = false; // 突顯熱感應區塊感
+                ctx.imageSmoothingEnabled = false;
                 ctx.drawImage(offC, 0, 0, pW, pH, 0, 0, vW, vH);
             } 
             else if (currentMode === 'insect') {
-                // 科學事實：數千個小眼組成的網格離散視覺
-                // 效能優化：直接利用 Canvas 原生縮放製造點陣，無須 JS 迴圈
-                const pW = 100;
+                // 昆蟲複眼：小眼點陣與網格交疊
+                const pW = 90;
                 const pH = Math.floor(pW * (vH / vW));
 
                 offC.width = pW; offC.height = pH;
                 offCtx.imageSmoothingEnabled = true;
                 offCtx.drawImage(video, 0, 0, pW, pH);
 
-                ctx.imageSmoothingEnabled = false; // 關閉平滑以產生複眼馬賽克
+                ctx.imageSmoothingEnabled = false;
                 ctx.drawImage(offC, 0, 0, pW, pH, 0, 0, vW, vH);
 
-                // 物理網格疊加 (六角形邊界感)
-                ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+                ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
                 const stepX = vW / pW;
                 const stepY = vH / pH;
                 for (let x = 0; x <= vW; x += stepX) ctx.fillRect(x, 0, 1, vH);
@@ -174,7 +175,7 @@
             else if (video.readyState >= video.HAVE_CURRENT_DATA) loop();
         });
 
-        init();
+        initCamera();
     </script>
 </body>
 </html>
