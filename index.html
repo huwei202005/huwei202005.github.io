@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>動物視覺光學模擬器 v1.0.7</title>
+    <title>跨平台生物光學視覺模擬器 v1.0.8</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { background: #000; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; overscroll-behavior: none; }
@@ -14,9 +14,9 @@
 
         #viewfinder { flex: 1; position: relative; width: 100%; overflow: hidden; background: #000; display: flex; justify-content: center; align-items: center; }
         
-        /* 針對 iOS Safari 調整：不可用 display: none，改用極小化並置於底層 */
-        video { position: absolute; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; }
-        canvas { display: block; width: 100%; height: 100%; object-fit: cover; }
+        /* 跨平台通用：使 video 參與佈局但不干擾視覺，確保 iOS/Android 持續解碼 */
+        video { position: absolute; width: 100%; height: 100%; object-fit: cover; opacity: 0; pointer-events: none; z-index: 1; }
+        canvas { position: absolute; width: 100%; height: 100%; object-fit: cover; z-index: 2; }
 
         #controls { padding: 12px 16px; background: rgba(15, 15, 15, 0.98); display: flex; justify-content: space-around; gap: 8px; z-index: 10; padding-bottom: calc(12px + env(safe-area-inset-bottom)); box-shadow: 0 -5px 20px rgba(0,0,0,0.8); }
         button { flex: 1; padding: 12px 6px; border: none; border-radius: 8px; background: #2a2a2a; color: #aaa; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; -webkit-tap-highlight-color: transparent; }
@@ -28,14 +28,14 @@
 <body>
 
     <div id="header-bar">
-        <h1>動物光學視覺引擎</h1>
-        <span class="version">v1.0.7</span>
+        <h1>生物光學視覺模擬器</h1>
+        <span class="version">v1.0.8</span>
     </div>
 
     <div id="viewfinder">
         <video id="webcam" autoplay playsinline muted></video>
         <canvas id="canvas"></canvas>
-        <div id="loading">啟動 iOS 相機串流中...</div>
+        <div id="loading">初始化神經光學引擎...</div>
     </div>
 
     <div id="controls">
@@ -60,21 +60,18 @@
 
         async function initCamera() {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: { exact: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+                const constraints = {
+                    video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
                     audio: false
-                });
+                };
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
                 video.srcObject = stream;
                 
-                // iOS Safari 必須明確呼叫 play()
                 await video.play();
 
                 await new Promise((resolve) => {
-                    if (video.videoWidth > 0) {
-                        resolve();
-                    } else {
-                        video.onloadedmetadata = () => resolve();
-                    }
+                    if (video.videoWidth > 0) resolve();
+                    else video.onloadedmetadata = () => resolve();
                 });
 
                 videoWidth = video.videoWidth || 1280;
@@ -101,30 +98,30 @@
                     if (animationFrameId) cancelAnimationFrame(animationFrameId);
                     animationFrameId = requestAnimationFrame(renderLoop);
                 } catch (e) {
-                    loading.innerText = "無法存取相機，請確認 Safari 權限或使用 HTTPS。";
+                    loading.innerText = "無法存取相機，請檢查瀏覽器權限與 HTTPS 連線。";
                 }
             }
         }
 
         function renderLoop() {
-            // 只要影片有畫面資料就持續抓取繪製
             if (video.readyState >= video.HAVE_CURRENT_DATA) {
                 if (currentMode === 'human') {
                     ctx.imageSmoothingEnabled = true;
                     ctx.drawImage(video, 0, 0, videoWidth, videoHeight);
                 } else if (currentMode === 'dog') {
-                    renderDogScientific();
+                    renderDogPhysiology();
                 } else if (currentMode === 'snake') {
-                    renderSnakeScientific();
+                    renderSnakePhysiology();
                 } else if (currentMode === 'insect') {
-                    renderInsectScientific();
+                    renderInsectPhysiology();
                 }
             }
             animationFrameId = requestAnimationFrame(renderLoop);
         }
 
-        function renderDogScientific() {
-            const scale = 0.2;
+        // 1. 貓狗視覺底層模擬：雙色視覺矩陣 + 近視降採樣
+        function renderDogPhysiology() {
+            const scale = 0.2; // 視力約 0.2 ~ 0.3
             const sw = Math.max(1, Math.floor(videoWidth * scale));
             const sh = Math.max(1, Math.floor(videoHeight * scale));
             
@@ -137,6 +134,7 @@
 
             for (let i = 0; i < data.length; i += 4) {
                 const r = data[i], g = data[i + 1], b = data[i + 2];
+                // 轉換為二色視覺（缺乏紅綠感光細胞，僅保留藍黃光譜對應）
                 const l = 0.3 * r + 0.59 * g + 0.11 * b;
                 data[i]     = Math.min(255, l * 1.05);
                 data[i + 1] = Math.min(255, l * 1.05);
@@ -148,8 +146,9 @@
             ctx.drawImage(offCanvas, 0, 0, sw, sh, 0, 0, videoWidth, videoHeight);
         }
 
-        function renderSnakeScientific() {
-            const scale = 0.12;
+        // 2. 蛇類熱視角底層模擬：頰窩低解析度與鐵弓熱譜對應
+        function renderSnakePhysiology() {
+            const scale = 0.1; // 極低解析度熱點陣列
             const sw = Math.max(1, Math.floor(videoWidth * scale));
             const sh = Math.max(1, Math.floor(videoHeight * scale));
 
@@ -178,7 +177,8 @@
             ctx.drawImage(offCanvas, 0, 0, sw, sh, 0, 0, videoWidth, videoHeight);
         }
 
-        function renderInsectScientific() {
+        // 3. 昆蟲複眼底層模擬：小眼離散光學網格
+        function renderInsectPhysiology() {
             const pixelSize = 14;
             const sw = Math.max(1, Math.floor(videoWidth / pixelSize));
             const sh = Math.max(1, Math.floor(videoHeight / pixelSize));
@@ -190,7 +190,7 @@
             ctx.imageSmoothingEnabled = false;
             ctx.drawImage(offCanvas, 0, 0, sw, sh, 0, 0, videoWidth, videoHeight);
 
-            ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
+            ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
             for (let x = 0; x < videoWidth; x += pixelSize) {
                 ctx.fillRect(x, 0, 1, videoHeight);
             }
@@ -207,7 +207,6 @@
 
         initCamera();
 
-        // 頁面切換或回覆時重新對齊執行緒
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) {
                 if (animationFrameId) cancelAnimationFrame(animationFrameId);
