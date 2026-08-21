@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>動物視覺光學模擬器 v1.0.6</title>
+    <title>動物視覺光學模擬器 v1.0.7</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { background: #000; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; overscroll-behavior: none; }
@@ -14,27 +14,28 @@
 
         #viewfinder { flex: 1; position: relative; width: 100%; overflow: hidden; background: #000; display: flex; justify-content: center; align-items: center; }
         
-        video { display: none; }
+        /* 針對 iOS Safari 調整：不可用 display: none，改用極小化並置於底層 */
+        video { position: absolute; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; }
         canvas { display: block; width: 100%; height: 100%; object-fit: cover; }
 
         #controls { padding: 12px 16px; background: rgba(15, 15, 15, 0.98); display: flex; justify-content: space-around; gap: 8px; z-index: 10; padding-bottom: calc(12px + env(safe-area-inset-bottom)); box-shadow: 0 -5px 20px rgba(0,0,0,0.8); }
         button { flex: 1; padding: 12px 6px; border: none; border-radius: 8px; background: #2a2a2a; color: #aaa; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; -webkit-tap-highlight-color: transparent; }
         button.active { background: #ffaa00; color: #000; font-weight: bold; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(255,170,0,0.4); }
         
-        #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; color: #888; text-align: center; }
+        #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; color: #888; text-align: center; z-index: 5; }
     </style>
 </head>
 <body>
 
     <div id="header-bar">
         <h1>動物光學視覺引擎</h1>
-        <span class="version">v1.0.6</span>
+        <span class="version">v1.0.7</span>
     </div>
 
     <div id="viewfinder">
         <video id="webcam" autoplay playsinline muted></video>
         <canvas id="canvas"></canvas>
-        <div id="loading">建立即時光學串流中...</div>
+        <div id="loading">啟動 iOS 相機串流中...</div>
     </div>
 
     <div id="controls">
@@ -65,13 +66,19 @@
                 });
                 video.srcObject = stream;
                 
+                // iOS Safari 必須明確呼叫 play()
+                await video.play();
+
                 await new Promise((resolve) => {
-                    video.onloadedmetadata = () => {
-                        videoWidth = video.videoWidth;
-                        videoHeight = video.videoHeight;
+                    if (video.videoWidth > 0) {
                         resolve();
-                    };
+                    } else {
+                        video.onloadedmetadata = () => resolve();
+                    }
                 });
+
+                videoWidth = video.videoWidth || 1280;
+                videoHeight = video.videoHeight || 720;
 
                 canvas.width = videoWidth;
                 canvas.height = videoHeight;
@@ -83,9 +90,10 @@
                 try {
                     const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
                     video.srcObject = fallbackStream;
-                    await new Promise((r) => { video.onloadedmetadata = r; });
-                    videoWidth = video.videoWidth;
-                    videoHeight = video.videoHeight;
+                    await video.play();
+                    
+                    videoWidth = video.videoWidth || 640;
+                    videoHeight = video.videoHeight || 480;
                     canvas.width = videoWidth;
                     canvas.height = videoHeight;
                     loading.style.display = 'none';
@@ -93,12 +101,13 @@
                     if (animationFrameId) cancelAnimationFrame(animationFrameId);
                     animationFrameId = requestAnimationFrame(renderLoop);
                 } catch (e) {
-                    loading.innerText = "無法存取相機，請檢查權限。";
+                    loading.innerText = "無法存取相機，請確認 Safari 權限或使用 HTTPS。";
                 }
             }
         }
 
         function renderLoop() {
+            // 只要影片有畫面資料就持續抓取繪製
             if (video.readyState >= video.HAVE_CURRENT_DATA) {
                 if (currentMode === 'human') {
                     ctx.imageSmoothingEnabled = true;
@@ -116,8 +125,8 @@
 
         function renderDogScientific() {
             const scale = 0.2;
-            const sw = Math.floor(videoWidth * scale);
-            const sh = Math.floor(videoHeight * scale);
+            const sw = Math.max(1, Math.floor(videoWidth * scale));
+            const sh = Math.max(1, Math.floor(videoHeight * scale));
             
             offCanvas.width = sw;
             offCanvas.height = sh;
@@ -141,8 +150,8 @@
 
         function renderSnakeScientific() {
             const scale = 0.12;
-            const sw = Math.floor(videoWidth * scale);
-            const sh = Math.floor(videoHeight * scale);
+            const sw = Math.max(1, Math.floor(videoWidth * scale));
+            const sh = Math.max(1, Math.floor(videoHeight * scale));
 
             offCanvas.width = sw;
             offCanvas.height = sh;
@@ -171,8 +180,8 @@
 
         function renderInsectScientific() {
             const pixelSize = 14;
-            const sw = Math.floor(videoWidth / pixelSize);
-            const sh = Math.floor(videoHeight / pixelSize);
+            const sw = Math.max(1, Math.floor(videoWidth / pixelSize));
+            const sh = Math.max(1, Math.floor(videoHeight / pixelSize));
 
             offCanvas.width = sw;
             offCanvas.height = sh;
@@ -198,10 +207,12 @@
 
         initCamera();
 
+        // 頁面切換或回覆時重新對齊執行緒
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) {
                 if (animationFrameId) cancelAnimationFrame(animationFrameId);
-            } else if (video.srcObject) {
+            } else {
+                if (video.paused) video.play();
                 if (animationFrameId) cancelAnimationFrame(animationFrameId);
                 animationFrameId = requestAnimationFrame(renderLoop);
             }
