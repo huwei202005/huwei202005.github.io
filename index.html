@@ -31,7 +31,7 @@
   #app[hidden] { display: none; }
 
   #viewfinder { flex: 1; position: relative; width: 100%; background: #000; overflow: hidden; }
-  video { position: absolute; top: 0; left: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+  video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; pointer-events: none; }
   canvas { width: 100%; height: 100%; object-fit: cover; display: block; }
   #viewfinder.mirror canvas { transform: scaleX(-1); }
 
@@ -337,137 +337,226 @@
   }
 
 
-  let facing = 'environment';
-  let switching = false;
+  let facing='environment';
+  let switching=false;
+  let renderQueued=false;
 
   function stopCamera(){
+    running=false;
     if(stream){
-      stream.getTracks().forEach(track=>track.stop());
+      for(const track of stream.getTracks()) track.stop();
       stream=null;
     }
+    video.pause();
     video.srcObject=null;
+    cancelAnimationFrame(rafId);
   }
 
-  function waitForVideo(){
-    return new Promise((resolve,reject)=>{
-      if(video.readyState>=HTMLMediaElement.HAVE_METADATA && video.videoWidth>0){
-        resolve(); return;
-      }
-      const timer=setTimeout(()=>{
-        cleanup();
-        reject(new Error('Camera metadata timeout'));
-      },8000);
-      function cleanup(){
+  async function waitForVideoReady(){
+    if(video.readyState>=2 && video.videoWidth>0 && video.videoHeight>0) return;
+    await new Promise((resolve,reject)=>{
+      let done=false;
+      const finish=(err)=>{
+        if(done) return;
+        done=true;
         clearTimeout(timer);
-        video.removeEventListener('loadedmetadata',ready);
-        video.removeEventListener('canplay',ready);
-      }
-      function ready(){
-        if(video.videoWidth>0 && video.videoHeight>0){
-          cleanup();
-          resolve();
-        }
-      }
-      video.addEventListener('loadedmetadata',ready,{once:false});
-      video.addEventListener('canplay',ready,{once:false});
+        video.removeEventListener('loadedmetadata',check);
+        video.removeEventListener('canplay',check);
+        if(err) reject(err); else resolve();
+      };
+      const check=()=>{
+        if(video.videoWidth>0 && video.videoHeight>0) finish();
+      };
+      const timer=setTimeout(()=>finish(new Error('camera metadata timeout')),10000);
+      video.addEventListener('loadedmetadata',check);
+      video.addEventListener('canplay',check);
+      check();
     });
   }
 
   function fitCanvasToVideo(){
-    vW=video.videoWidth;
-    vH=video.videoHeight;
-    if(!vW || !vH) throw new Error('Invalid video dimensions');
-    canvas.width=vW;
-    canvas.height=vH;
-    flyGeom=null;
+    if(video.videoWidth>0 && video.videoHeight>0){
+      vW=video.videoWidth;
+      vH=video.videoHeight;
+      if(canvas.width!==vW) canvas.width=vW;
+      if(canvas.height!==vH) canvas.height=vH;
+      flyGeom=null;
+    }
   }
 
   async function openCamera(mode){
     if(switching) return;
     switching=true;
-    running=false;
-    cancelAnimationFrame(rafId);
     stopCamera();
 
-    const base={audio:false};
-    const preferred={
-      audio:false,
-      video:{
-        facingMode:{ideal:mode},
-        width:{ideal:1280},
-        height:{ideal:720},
-        frameRate:{ideal:30,max:30}
-      }
-    };
-
     try{
-      stream=await navigator.mediaDevices.getUserMedia(preferred);
+      if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+        throw new Error('getUserMedia unavailable');
+      }
+
+      let constraints={
+        audio:false,
+        video:{
+          facingMode:{ideal:mode},
+          width:{ideal:1280},
+          height:{ideal:720}
+        }
+      };
+
+      try{
+        stream=await navigator.mediaDevices.getUserMedia(constraints);
+      }catch(firstError){
+        constraints={audio:false,video:true};
+        stream=await navigator.mediaDevices.getUserMedia(constraints);
+      }
+
+      video.muted=true;
+      video.autoplay=true;
+      video.playsInline=true;
+      video.srcObject=stream;
+
+      await waitForVideoReady();
+      await video.play();
+
+      // Read actual camera dimensions only after playback is valid.
+      vW=video.videoWidth;
+      vH=video.videoHeight;
+      if(vW<2 || vH<2) throw new Error('invalid camera dimensions');
+
+      canvas.width=vW;
+      canvas.height=vH;
+      flyGeom=null;
+
+      document.getElementById('viewfinder').classList.toggle('mirror',mode==='user');
+      switching=false;
     }catch(e){
-      // Fallback for browsers/devices that reject advanced constraints.
-      stream=await navigator.mediaDevices.getUserMedia({
-        ...base,
-        video:{facingMode:mode}
-      });
+      switching=false;
+      stopCamera();
+      throw e;
+    }
+  }
+
+  function drawNormal(){
+    ctx.save();
+    ctx.clearRect(0,0,vW,vH);
+    ctx.imageSmoothingEnabled=true;
+
+    const vw=video.videoWidth, vh=video.videoHeight;
+    if(!vw || !vh){
+      ctx.restore();
+      return;
     }
 
-    video.srcObject=stream;
-    video.setAttribute('playsinline','');
-    video.muted=true;
-    await waitForVideo();
-    await video.play();
-    fitCanvasToVideo();
-    document.getElementById('viewfinder').classList.toggle('mirror',mode==='user');
-    switching=false;
+    // Cover crop in the intrinsic canvas coordinate system.
+    const scale=Math.max(vW/vw,vH/vh);
+    const dw=vw*scale, dh=vh*scale;
+    const dx=(vW-dw)/2, dy=(vH-dh)/2;
+    ctx.drawImage(video,dx,dy,dw,dh);
+
+    ctx.restore();
+  }
+
+  function loop(){
+    if(!running) return;
+
+    if(video.readyState<2 || !vW || !vH){
+      rafId=requestAnimationFrame(loop);
+      return;
+    }
+
+    try{
+      if(curMode==='h-norm'){
+        drawNormal();
+      }else if(curMode.startsWith('h-')){
+        processOpticalMatrix(vW,curMode);
+      }else if(curMode==='d-dog'){
+        processOpticalMatrix(Math.max(320,Math.floor(vW*0.55)),curMode);
+      }else if(curMode==='c-cat'){
+        processOpticalMatrix(Math.max(320,Math.floor(vW*0.50)),curMode);
+      }else if(curMode==='i-bee'){
+        processOpticalMatrix(Math.max(320,Math.floor(vW*0.55)),curMode);
+      }else if(curMode==='i-fly'){
+        processFlyEye();
+      }else if(curMode==='i-mosq'){
+        processOpticalMatrix(Math.max(160,Math.floor(vW*0.12)),curMode);
+      }else if(curMode==='s-viper'){
+        processOpticalMatrix(Math.max(160,Math.floor(vW*0.16)),curMode);
+      }
+    }catch(e){
+      const note=document.getElementById('hudNote');
+      if(note) note.textContent='渲染錯誤：'+(e.message||e.name||'unknown');
+      running=false;
+      return;
+    }
+
+    rafId=requestAnimationFrame(loop);
   }
 
   document.getElementById('startBtn').addEventListener('click',async()=>{
     const btn=document.getElementById('startBtn');
     const msg=document.getElementById('bootMsg');
     btn.disabled=true;
-    btn.textContent='初始化光學中…';
     msg.textContent='';
+    btn.textContent='初始化光學中…';
 
     try{
       await openCamera(facing);
-      document.getElementById('boot').style.display='none';
+
+      // Show the application only after the video is actually playable.
       document.getElementById('app').hidden=false;
+      document.getElementById('boot').style.display='none';
       buildSubMenu(curCat);
       updateHUD();
+
       running=true;
       loop();
     }catch(e){
-      stopCamera();
-      msg.textContent='相機啟動失敗：'+(e.name||'Unknown error');
-      btn.textContent='重試';
       btn.disabled=false;
+      btn.textContent='重試';
+      msg.textContent='相機啟動失敗：'+(e.name||e.message||'Unknown error');
     }
   });
 
   document.getElementById('flipBtn').addEventListener('click',async()=>{
     if(switching) return;
     const next=facing==='environment'?'user':'environment';
+
     try{
       await openCamera(next);
       facing=next;
       running=true;
       loop();
     }catch(e){
-      running=false;
-      document.getElementById('hudNote').textContent='鏡頭切換失敗：'+(e.name||'Unknown error');
+      const note=document.getElementById('hudNote');
+      if(note) note.textContent='鏡頭切換失敗：'+(e.name||e.message||'Unknown error');
     }
   });
 
-  document.addEventListener('visibilitychange',()=>{
+  document.addEventListener('visibilitychange',async()=>{
     if(document.hidden){
       running=false;
       cancelAnimationFrame(rafId);
-    }else if(video.srcObject && video.readyState>=HTMLMediaElement.HAVE_CURRENT_DATA && !running){
-      running=true;
-      loop();
+      return;
+    }
+
+    if(stream && video.readyState>=2){
+      try{
+        await video.play();
+        fitCanvasToVideo();
+        running=true;
+        loop();
+      }catch(e){}
+    }
+  });
+
+  window.addEventListener('resize',()=>{
+    if(video.videoWidth>0 && video.videoHeight>0){
+      fitCanvasToVideo();
     }
   });
 
   window.addEventListener('beforeunload',stopCamera);
+
 
 })();
 </script>
