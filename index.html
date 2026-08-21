@@ -338,44 +338,136 @@
 
 
   let facing = 'environment';
-  async function openCamera(mode){
-    if(stream) stream.getTracks().forEach(t=>t.stop());
-    stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: mode }, width: { ideal: 960 }, height: { ideal: 720 } },
-      audio: false
-    });
-    video.srcObject = stream;
-    await new Promise(r => { video.onloadedmetadata = r; setTimeout(r, 500); });
-    await video.play();
-    vW = video.videoWidth || 960; vH = video.videoHeight || 540;
-    canvas.width = vW; canvas.height = vH;
-    flyGeom = null;
-    document.getElementById('viewfinder').classList.toggle('mirror', mode === 'user');
+  let switching = false;
+
+  function stopCamera(){
+    if(stream){
+      stream.getTracks().forEach(track=>track.stop());
+      stream=null;
+    }
+    video.srcObject=null;
   }
 
-  document.getElementById('startBtn').addEventListener('click', async () => {
-    document.getElementById('startBtn').textContent = '初始化光學中…';
-    try {
+  function waitForVideo(){
+    return new Promise((resolve,reject)=>{
+      if(video.readyState>=HTMLMediaElement.HAVE_METADATA && video.videoWidth>0){
+        resolve(); return;
+      }
+      const timer=setTimeout(()=>{
+        cleanup();
+        reject(new Error('Camera metadata timeout'));
+      },8000);
+      function cleanup(){
+        clearTimeout(timer);
+        video.removeEventListener('loadedmetadata',ready);
+        video.removeEventListener('canplay',ready);
+      }
+      function ready(){
+        if(video.videoWidth>0 && video.videoHeight>0){
+          cleanup();
+          resolve();
+        }
+      }
+      video.addEventListener('loadedmetadata',ready,{once:false});
+      video.addEventListener('canplay',ready,{once:false});
+    });
+  }
+
+  function fitCanvasToVideo(){
+    vW=video.videoWidth;
+    vH=video.videoHeight;
+    if(!vW || !vH) throw new Error('Invalid video dimensions');
+    canvas.width=vW;
+    canvas.height=vH;
+    flyGeom=null;
+  }
+
+  async function openCamera(mode){
+    if(switching) return;
+    switching=true;
+    running=false;
+    cancelAnimationFrame(rafId);
+    stopCamera();
+
+    const base={audio:false};
+    const preferred={
+      audio:false,
+      video:{
+        facingMode:{ideal:mode},
+        width:{ideal:1280},
+        height:{ideal:720},
+        frameRate:{ideal:30,max:30}
+      }
+    };
+
+    try{
+      stream=await navigator.mediaDevices.getUserMedia(preferred);
+    }catch(e){
+      // Fallback for browsers/devices that reject advanced constraints.
+      stream=await navigator.mediaDevices.getUserMedia({
+        ...base,
+        video:{facingMode:mode}
+      });
+    }
+
+    video.srcObject=stream;
+    video.setAttribute('playsinline','');
+    video.muted=true;
+    await waitForVideo();
+    await video.play();
+    fitCanvasToVideo();
+    document.getElementById('viewfinder').classList.toggle('mirror',mode==='user');
+    switching=false;
+  }
+
+  document.getElementById('startBtn').addEventListener('click',async()=>{
+    const btn=document.getElementById('startBtn');
+    const msg=document.getElementById('bootMsg');
+    btn.disabled=true;
+    btn.textContent='初始化光學中…';
+    msg.textContent='';
+
+    try{
       await openCamera(facing);
-      document.getElementById('boot').style.display = 'none';
-      document.getElementById('app').hidden = false;
-      buildSubMenu(curCat); updateHUD();
-      running = true; loop();
-    } catch(e) {
-      document.getElementById('bootMsg').textContent = '相機啟動失敗，請確認隱私權限。';
-      document.getElementById('startBtn').textContent = '重試';
+      document.getElementById('boot').style.display='none';
+      document.getElementById('app').hidden=false;
+      buildSubMenu(curCat);
+      updateHUD();
+      running=true;
+      loop();
+    }catch(e){
+      stopCamera();
+      msg.textContent='相機啟動失敗：'+(e.name||'Unknown error');
+      btn.textContent='重試';
+      btn.disabled=false;
     }
   });
 
-  document.getElementById('flipBtn').addEventListener('click', async () => {
-    facing = facing === 'environment' ? 'user' : 'environment';
-    await openCamera(facing);
+  document.getElementById('flipBtn').addEventListener('click',async()=>{
+    if(switching) return;
+    const next=facing==='environment'?'user':'environment';
+    try{
+      await openCamera(next);
+      facing=next;
+      running=true;
+      loop();
+    }catch(e){
+      running=false;
+      document.getElementById('hudNote').textContent='鏡頭切換失敗：'+(e.name||'Unknown error');
+    }
   });
 
-  document.addEventListener('visibilitychange', () => {
-    if(document.hidden) { running = false; cancelAnimationFrame(rafId); }
-    else if(video.readyState >= 2 && !running) { running = true; loop(); }
+  document.addEventListener('visibilitychange',()=>{
+    if(document.hidden){
+      running=false;
+      cancelAnimationFrame(rafId);
+    }else if(video.srcObject && video.readyState>=HTMLMediaElement.HAVE_CURRENT_DATA && !running){
+      running=true;
+      loop();
+    }
   });
+
+  window.addEventListener('beforeunload',stopCamera);
 
 })();
 </script>
