@@ -2,40 +2,41 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>真實動物視角模擬器</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: #111; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        body { background: #000; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
         
-        #viewfinder { flex: 1; position: relative; width: 100%; overflow: hidden; display: flex; justify-content: center; align-items: center; background: #000; }
-        video, canvas { position: absolute; width: 100%; height: 100%; object-fit: cover; }
+        #viewfinder { flex: 1; position: relative; width: 100%; overflow: hidden; background: #000; display: flex; justify-content: center; align-items: center; }
         
-        /* 視覺濾鏡效果 */
-        .filter-dog { filter: sepia(30%) hue-rotate(180deg) saturate(1.2) contrast(1.1); }
-        .filter-insect { filter: contrast(150%) brightness(90%); }
-        .filter-snake { filter: grayscale(100%) invert(100%) contrast(200%); }
+        /* 確保手機鏡頭畫面不變形、填滿螢幕 */
+        video { width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0; }
         
-        /* 昆蟲複眼網格覆蓋層 */
+        /* 動物視覺濾鏡 */
+        .filter-dog { filter: sepia(40%) hue-rotate(185deg) saturate(1.1) contrast(1.05); }
+        .filter-insect { filter: contrast(160%) brightness(85%) saturate(1.2); }
+        .filter-snake { filter: grayscale(100%) invert(100%) contrast(180%); }
+        
+        /* 昆蟲複眼視覺效果：多重邊緣暈影與網格感 */
         #insect-overlay {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
             pointer-events: none;
-            background-image: radial-gradient(circle, transparent 60%, rgba(0,0,0,0.8) 90%);
-            box-shadow: inset 0 0 50px rgba(0,0,0,0.9);
+            background-image: radial-gradient(circle, transparent 40%, rgba(0,0,0,0.85) 85%),
+                              repeating-linear-gradient(0deg, rgba(0,0,0,0.15), rgba(0,0,0,0.15) 2px, transparent 2px, transparent 4px);
             display: none;
         }
 
-        #controls { padding: 15px; background: #222; display: flex; justify-content: space-around; gap: 5px; z-index: 10; flex-wrap: wrap; }
-        button { padding: 10px 15px; border: none; border-radius: 5px; background: #444; color: #fff; font-size: 14px; cursor: pointer; flex: 1; min-width: 70px; }
-        button.active { background: #007aff; font-weight: bold; }
+        #controls { padding: 12px 16px; background: rgba(20, 20, 20, 0.95); display: flex; justify-content: space-between; gap: 8px; z-index: 10; padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+        button { flex: 1; padding: 12px 6px; border: none; border-radius: 8px; background: #333; color: #aaa; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+        button.active { background: #007aff; color: #fff; font-weight: bold; transform: scale(1.02); }
     </style>
 </head>
 <body>
 
     <div id="viewfinder">
         <video id="webcam" autoplay playsinline muted></video>
-        <canvas id="canvas" style="display:none;"></canvas>
         <div id="insect-overlay"></div>
     </div>
 
@@ -49,31 +50,34 @@
     <script>
         const video = document.getElementById('webcam');
         const insectOverlay = document.getElementById('insect-overlay');
-        let currentMode = 'human';
 
-        // 啟動手機相機（優先使用後鏡頭）
         async function initCamera() {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: { ideal: "environment" } },
+                // 強制優先調用手機「後鏡頭」
+                const constraints = {
+                    video: { facingMode: { exact: "environment" } },
                     audio: false
-                });
+                };
+                let stream;
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia(constraints);
+                } catch (e) {
+                    // 若後鏡頭抓取失敗（部分桌機或特殊環境），改用一般相機
+                    stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                }
                 video.srcObject = stream;
             } catch (err) {
-                alert("無法存取相機，請確認是否授權權限。");
+                alert("無法存取相機，請確認瀏覽器是否已授權相機權限。");
             }
         }
 
         function setMode(mode, btn) {
-            currentMode = mode;
             document.querySelectorAll('button').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
 
-            // 重置效果
             video.className = '';
             insectOverlay.style.display = 'none';
 
-            // 套用對應視角模式
             if (mode === 'dog') {
                 video.classList.add('filter-dog');
             } else if (mode === 'insect') {
