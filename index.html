@@ -3,11 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>科學級動物視覺精準模擬器</title>
+    <title>科學級動物視覺精準模擬器 v1.0.1</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { background: #000; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; overscroll-behavior: none; }
         
+        #header-bar { background: rgba(10, 10, 10, 0.95); padding: 8px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #222; z-index: 10; }
+        #header-bar h1 { font-size: 14px; font-weight: 600; color: #ddd; }
+        #header-bar .version { font-size: 11px; color: #666; background: #1a1a1a; padding: 2px 6px; border-radius: 4px; }
+
         #viewfinder { flex: 1; position: relative; width: 100%; overflow: hidden; background: #000; display: flex; justify-content: center; align-items: center; }
         
         video { display: none; }
@@ -21,6 +25,11 @@
     </style>
 </head>
 <body>
+
+    <div id="header-bar">
+        <h1>動物視覺模擬器</h1>
+        <span class="version">v1.0.1</span>
+    </div>
 
     <div id="viewfinder">
         <video id="webcam" autoplay playsinline muted></video>
@@ -45,7 +54,6 @@
         let animationFrameId = null;
         let videoWidth = 0, videoHeight = 0;
 
-        // 離屏 Canvas 用於低解析度運算（模擬貓狗與昆蟲視力模糊/馬賽克）
         const offCanvas = document.createElement('canvas');
         const offCtx = offCanvas.getContext('2d', { alpha: false });
 
@@ -73,7 +81,6 @@
             } catch (err) {
                 console.error("相機錯誤:", err);
                 try {
-                    // 若無後鏡頭（如電腦測試），降級為任意相機
                     const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
                     video.srcObject = fallbackStream;
                     await new Promise((r) => { video.onloadedmetadata = r; });
@@ -92,6 +99,7 @@
         function renderLoop() {
             if (video.readyState >= video.HAVE_CURRENT_DATA) {
                 if (currentMode === 'human') {
+                    ctx.filter = 'none';
                     ctx.imageSmoothingEnabled = true;
                     ctx.drawImage(video, 0, 0, videoWidth, videoHeight);
                 } else if (currentMode === 'dog') {
@@ -105,41 +113,35 @@
             animationFrameId = requestAnimationFrame(renderLoop);
         }
 
-        // 1. 貓狗視覺：二色視覺矩陣 + 視力模糊降採樣
+        // 1. 貓狗視覺：二色視覺矩陣 + 強烈近視失焦模糊
         function renderDogVision() {
-            // 縮小畫面模擬低視力（近視約 0.3）
-            const scale = 0.25; 
-            const sw = Math.floor(videoWidth * scale);
-            const sh = Math.floor(videoHeight * scale);
-            
-            offCanvas.width = sw;
-            offCanvas.height = sh;
-            offCtx.drawImage(video, 0, 0, sw, sh);
-            
-            const imgData = offCtx.getImageData(0, 0, sw, sh);
+            // 先繪製原始畫面，並直接在 Canvas Context 上套用高斯模糊模擬近視
+            ctx.filter = 'blur(6px)'; 
+            ctx.imageSmoothingEnabled = true;
+            ctx.drawImage(video, 0, 0, videoWidth, videoHeight);
+            ctx.filter = 'none'; // 重置濾鏡避免影響其他模式
+
+            // 接著讀取模糊後的畫面進行二色視覺色彩轉換
+            const imgData = ctx.getImageData(0, 0, videoWidth, videoHeight);
             const data = imgData.data;
 
-            // 二色視覺投影演算法 (Dichromacy Transformation)
             for (let i = 0; i < data.length; i += 4) {
                 const r = data[i];
                 const g = data[i + 1];
                 const b = data[i + 2];
 
-                // 將紅綠通道壓縮，轉換為犬貓能感知的藍黃色域
-                const L = 0.299 * r + 0.587 * g + 0.114 * b; // 亮度
-                data[i]     = Math.min(255, L * 1.1); // R
-                data[i + 1] = Math.min(255, L * 1.1); // G
-                data[i + 2] = b;                      // B (保留藍色)
+                // 移除紅色敏感度，轉換為藍黃色域（二色視覺）
+                const L = 0.299 * r + 0.587 * g + 0.114 * b;
+                data[i]     = Math.min(255, L * 1.1);
+                data[i + 1] = Math.min(255, L * 1.1);
+                data[i + 2] = b;
             }
-            offCtx.putImageData(imgData, 0, 0);
-
-            // 放大回主畫面（利用最近鄰插值產生自然模糊感）
-            ctx.imageSmoothingEnabled = true;
-            ctx.drawImage(offCanvas, 0, 0, sw, sh, 0, 0, videoWidth, videoHeight);
+            ctx.putImageData(imgData, 0, 0);
         }
 
-        // 2. 蛇類熱視角：科學鐵弓熱感應映射 (Ironbow Thermal Palette)
+        // 2. 蛇類熱視角
         function renderSnakeVision() {
+            ctx.filter = 'none';
             ctx.imageSmoothingEnabled = true;
             ctx.drawImage(video, 0, 0, videoWidth, videoHeight);
             
@@ -151,18 +153,16 @@
                 const g = data[i + 1];
                 const b = data[i + 2];
                 
-                // 計算灰階能量值
                 const val = (r * 0.299 + g * 0.587 + b * 0.114);
-                
                 let nr, ng, nb;
-                // 熱感應偽彩漸層映射
-                if (val < 64) { // 低溫區：黑到深藍
+                
+                if (val < 64) {
                     nr = 0; ng = 0; nb = val * 4;
-                } else if (val < 128) { // 中低溫：藍到紅
+                } else if (val < 128) {
                     nr = (val - 64) * 4; ng = 0; nb = 255 - (val - 64) * 4;
-                } else if (val < 192) { // 中高溫：紅到黃
+                } else if (val < 192) {
                     nr = 255; ng = (val - 128) * 4; nb = 0;
-                } else { // 高溫熱源區：黃到白
+                } else {
                     nr = 255; ng = 255; nb = (val - 192) * 4;
                 }
                 
@@ -173,9 +173,10 @@
             ctx.putImageData(imgData, 0, 0);
         }
 
-        // 3. 昆蟲複眼視角：低解小眼離散成像 + 光學暗角
+        // 3. 昆蟲複眼視角
         function renderInsectVision() {
-            const pixelSize = 14; // 複眼小眼密度單元
+            ctx.filter = 'none';
+            const pixelSize = 14;
             const sw = Math.floor(videoWidth / pixelSize);
             const sh = Math.floor(videoHeight / pixelSize);
 
@@ -183,11 +184,9 @@
             offCanvas.height = sh;
             offCtx.drawImage(video, 0, 0, sw, sh);
 
-            // 放大並強制馬賽克像素化
             ctx.imageSmoothingEnabled = false;
             ctx.drawImage(offCanvas, 0, 0, sw, sh, 0, 0, videoWidth, videoHeight);
 
-            // 疊加各個小眼邊緣的光學暗角 (Vignetting)
             const imgData = ctx.getImageData(0, 0, videoWidth, videoHeight);
             const data = imgData.data;
             const cx = videoWidth / 2;
@@ -197,7 +196,6 @@
             for (let y = 0; y < videoHeight; y++) {
                 for (let x = 0; x < videoWidth; x++) {
                     const i = (y * videoWidth + x) * 4;
-                    // 模擬單眼周邊光線遞減
                     const dist = Math.sqrt((x - cx) ** 2 + (y - cy) ** 2);
                     const vignette = Math.max(0.3, 1.15 - (dist / maxDist));
                     
