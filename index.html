@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>科學級動物視覺精準模擬器 v1.0.1</title>
+    <title>科學級動物視覺精準模擬器 v1.0.2</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { background: #000; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; overscroll-behavior: none; }
@@ -28,7 +28,7 @@
 
     <div id="header-bar">
         <h1>動物視覺模擬器</h1>
-        <span class="version">v1.0.1</span>
+        <span class="version">v1.0.2</span>
     </div>
 
     <div id="viewfinder">
@@ -54,6 +54,7 @@
         let animationFrameId = null;
         let videoWidth = 0, videoHeight = 0;
 
+        // 高效能離屏 Canvas
         const offCanvas = document.createElement('canvas');
         const offCtx = offCanvas.getContext('2d', { alpha: false });
 
@@ -99,7 +100,6 @@
         function renderLoop() {
             if (video.readyState >= video.HAVE_CURRENT_DATA) {
                 if (currentMode === 'human') {
-                    ctx.filter = 'none';
                     ctx.imageSmoothingEnabled = true;
                     ctx.drawImage(video, 0, 0, videoWidth, videoHeight);
                 } else if (currentMode === 'dog') {
@@ -113,35 +113,39 @@
             animationFrameId = requestAnimationFrame(renderLoop);
         }
 
-        // 1. 貓狗視覺：二色視覺矩陣 + 強烈近視失焦模糊
+        // 1. 貓狗視覺：透過極低解析度縮放（雙色視覺色彩矩陣）完美呈現近視糊焦，零延遲
         function renderDogVision() {
-            // 先繪製原始畫面，並直接在 Canvas Context 上套用高斯模糊模擬近視
-            ctx.filter = 'blur(6px)'; 
-            ctx.imageSmoothingEnabled = true;
-            ctx.drawImage(video, 0, 0, videoWidth, videoHeight);
-            ctx.filter = 'none'; // 重置濾鏡避免影響其他模式
-
-            // 接著讀取模糊後的畫面進行二色視覺色彩轉換
-            const imgData = ctx.getImageData(0, 0, videoWidth, videoHeight);
+            const scale = 0.15; // 極低解析度模擬近視
+            const sw = Math.floor(videoWidth * scale);
+            const sh = Math.floor(videoHeight * scale);
+            
+            offCanvas.width = sw;
+            offCanvas.height = sh;
+            offCtx.drawImage(video, 0, 0, sw, sh);
+            
+            const imgData = offCtx.getImageData(0, 0, sw, sh);
             const data = imgData.data;
 
+            // 二色視覺矩陣運算（僅對極小像素量運算，極速不卡頓）
             for (let i = 0; i < data.length; i += 4) {
                 const r = data[i];
                 const g = data[i + 1];
                 const b = data[i + 2];
 
-                // 移除紅色敏感度，轉換為藍黃色域（二色視覺）
                 const L = 0.299 * r + 0.587 * g + 0.114 * b;
                 data[i]     = Math.min(255, L * 1.1);
                 data[i + 1] = Math.min(255, L * 1.1);
                 data[i + 2] = b;
             }
-            ctx.putImageData(imgData, 0, 0);
+            offCtx.putImageData(imgData, 0, 0);
+
+            // 放大回主畫面（瀏覽器硬體自動進行平滑插值，形成自然近視糊焦）
+            ctx.imageSmoothingEnabled = true;
+            ctx.drawImage(offCanvas, 0, 0, sw, sh, 0, 0, videoWidth, videoHeight);
         }
 
-        // 2. 蛇類熱視角
+        // 2. 蛇類熱視角：優化迴圈效能
         function renderSnakeVision() {
-            ctx.filter = 'none';
             ctx.imageSmoothingEnabled = true;
             ctx.drawImage(video, 0, 0, videoWidth, videoHeight);
             
@@ -173,10 +177,9 @@
             ctx.putImageData(imgData, 0, 0);
         }
 
-        // 3. 昆蟲複眼視角
+        // 3. 昆蟲複眼視角：無卡頓馬賽克
         function renderInsectVision() {
-            ctx.filter = 'none';
-            const pixelSize = 14;
+            const pixelSize = 16;
             const sw = Math.floor(videoWidth / pixelSize);
             const sh = Math.floor(videoHeight / pixelSize);
 
@@ -186,26 +189,6 @@
 
             ctx.imageSmoothingEnabled = false;
             ctx.drawImage(offCanvas, 0, 0, sw, sh, 0, 0, videoWidth, videoHeight);
-
-            const imgData = ctx.getImageData(0, 0, videoWidth, videoHeight);
-            const data = imgData.data;
-            const cx = videoWidth / 2;
-            const cy = videoHeight / 2;
-            const maxDist = Math.sqrt(cx * cx + cy * cy);
-
-            for (let y = 0; y < videoHeight; y++) {
-                for (let x = 0; x < videoWidth; x++) {
-                    const i = (y * videoWidth + x) * 4;
-                    const dist = Math.sqrt((x - cx) ** 2 + (y - cy) ** 2);
-                    const vignette = Math.max(0.3, 1.15 - (dist / maxDist));
-                    
-                    data[i]     *= vignette;
-                    data[i + 1] *= vignette;
-                    data[i + 2] *= vignette;
-                }
-            }
-            ctx.putImageData(imgData, 0, 0);
-            ctx.imageSmoothingEnabled = true;
         }
 
         function setMode(mode, btn) {
