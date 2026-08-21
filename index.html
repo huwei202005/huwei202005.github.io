@@ -5,560 +5,101 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>UMWELT｜跨物種視角模擬器</title>
 <style>
-  :root {
-    --ink: #0a0d0a; --ink-2: #12160f; --paper: #e7e3d3; --paper-dim: #9c9a86;
-    --phosphor: #8fe38f; --phosphor-dim: #4f7a52; --rust: #c2652e; --amber: #d9a441;
-    --slate: #31382f;
-    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
-    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
-  html, body { height: 100%; overscroll-behavior: none; background: var(--ink); color: var(--paper); font-family: var(--mono); overflow: hidden; }
-
-  /* ---------- 開機畫面 ---------- */
-  #boot {
-    position: fixed; inset: 0; z-index: 50; background: radial-gradient(ellipse at 50% -10%, rgba(143,227,143,0.08), transparent 60%), var(--ink);
-    display: flex; align-items: center; justify-content: center; padding: 24px;
-  }
-  .boot-inner { max-width: 420px; width: 100%; text-align: center; }
-  #boot h1 { font-family: var(--serif); font-style: italic; font-weight: 600; font-size: 52px; color: var(--paper); margin-bottom: 14px; }
-  .boot-sub { font-size: 13px; line-height: 1.7; color: var(--paper-dim); margin-bottom: 30px; }
-  #startBtn { font-family: var(--mono); font-size: 14px; letter-spacing: 0.08em; background: var(--phosphor); color: #04140a; border: none; padding: 15px 30px; font-weight: 700; cursor: pointer; width: 100%; }
-  .boot-msg { margin-top: 16px; font-size: 12px; color: var(--rust); min-height: 16px; }
-
-  /* ---------- 主程式區 ---------- */
-  #app { position: fixed; inset: 0; display: flex; flex-direction: column; }
-  #app[hidden] { display: none; }
-
-  #viewfinder { flex: 1; position: relative; width: 100%; background: #000; overflow: hidden; }
-  video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; pointer-events: none; }
-  canvas { width: 100%; height: 100%; object-fit: cover; display: block; }
-  #viewfinder.mirror canvas { transform: scaleX(-1); }
-
-  /* ---------- HUD 指示 ---------- */
-  #hud { position: absolute; top: 0; left: 0; right: 0; z-index: 5; padding: calc(10px + env(safe-area-inset-top)) 14px 8px; background: linear-gradient(to bottom, rgba(10,13,10,0.85), transparent); pointer-events: none; }
-  .hud-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-  .hud-species { font-family: var(--serif); font-style: italic; font-size: 16px; color: var(--paper); }
-  .hud-data { margin-top: 4px; font-size: 11px; color: var(--amber); line-height: 1.5; }
-  .hud-note { margin-top: 2px; font-size: 9px; color: var(--paper-dim); line-height: 1.5; }
-  #flipBtn { position: absolute; top: calc(12px + env(safe-area-inset-top)); right: 12px; z-index: 6; width: 38px; height: 38px; border-radius: 50%; background: rgba(10,13,10,0.55); border: 1px solid var(--slate); color: var(--paper); font-size: 18px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
-
-  /* ---------- 雙層控制列 ---------- */
-  #ui-panel { display: flex; flex-direction: column; background: var(--ink-2); border-top: 1px solid var(--slate); z-index: 5; padding-bottom: env(safe-area-inset-bottom); }
-  
-  /* 上層：主群組 */
-  #cat-bar { display: flex; gap: 4px; padding: 8px 10px; border-bottom: 1px solid #1a2018; overflow-x: auto; scrollbar-width: none; }
-  #cat-bar::-webkit-scrollbar { display: none; }
-  .cat-btn { flex: 0 0 auto; padding: 8px 16px; font-family: var(--mono); font-size: 12px; color: var(--paper-dim); background: transparent; border: 1px solid transparent; cursor: pointer; }
-  .cat-btn.active { color: var(--phosphor); border-bottom: 2px solid var(--phosphor); }
-
-  /* 下層：次分類 */
-  #sub-bar { display: flex; gap: 6px; padding: 10px; overflow-x: auto; scrollbar-width: none; }
-  #sub-bar::-webkit-scrollbar { display: none; }
-  .sub-btn { flex: 0 0 82px; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 2px; border: 1px solid var(--slate); border-radius: 4px; background: transparent; color: var(--paper-dim); font-family: var(--mono); font-size: 13px; font-weight: 700; cursor: pointer; }
-  .sub-btn span { font-size: 9px; font-weight: 400; color: inherit; opacity: 0.7; }
-  .sub-btn.active { background: var(--phosphor); border-color: var(--phosphor); color: #04140a; }
-  .sub-btn.active span { color: #0a2b0f; opacity: 0.85; }
+:root{--ink:#0a0d0a;--ink-2:#12160f;--paper:#e7e3d3;--paper-dim:#9c9a86;--phosphor:#8fe38f;--phosphor-dim:#4f7a52;--rust:#c2652e;--amber:#d9a441;--slate:#31382f;--mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;--serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif}
+*{box-sizing:border-box;margin:0;padding:0;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+html,body{height:100%;overscroll-behavior:none;background:var(--ink);color:var(--paper);font-family:var(--mono);overflow:hidden}
+body{height:100vh;height:100dvh}
+#boot{position:fixed;inset:0;z-index:50;background:radial-gradient(ellipse at 50% -10%,rgba(143,227,143,.08),transparent 60%),var(--ink);display:flex;align-items:center;justify-content:center;padding:24px;padding-top:calc(24px + env(safe-area-inset-top));padding-bottom:calc(24px + env(safe-area-inset-bottom))}
+.boot-inner{max-width:440px;width:100%;text-align:center}.boot-eyebrow{font-size:10px;letter-spacing:.2em;color:var(--phosphor-dim);margin-bottom:16px}
+#boot h1{font-family:var(--serif);font-style:italic;font-weight:600;font-size:50px;color:var(--paper);margin-bottom:14px}.boot-sub{font-size:12.5px;line-height:1.7;color:var(--paper-dim);margin-bottom:26px}
+#startBtn{font-family:var(--mono);font-size:14px;letter-spacing:.08em;background:var(--phosphor);color:#04140a;border:none;padding:15px 30px;font-weight:700;cursor:pointer;width:100%;border-radius:2px;touch-action:manipulation}
+#startBtn:active{background:#79cc7d}.boot-msg{margin-top:16px;font-size:12px;color:var(--rust);min-height:16px;line-height:1.6}.boot-refs{margin-top:24px;font-size:8.5px;letter-spacing:.02em;color:#4a4d43;border-top:1px solid var(--slate);padding-top:14px;line-height:1.7}
+#app{position:fixed;inset:0;display:flex;flex-direction:column}#app[hidden]{display:none}
+#viewfinder{flex:1;position:relative;width:100%;background:#000;overflow:hidden}
+video{position:absolute;inset:0;width:100%;height:100%;opacity:0;pointer-events:none;object-fit:cover}
+canvas{width:100%;height:100%;object-fit:cover;display:block}#viewfinder.mirror canvas{transform:scaleX(-1)}
+#hud{position:absolute;top:0;left:0;right:0;z-index:5;padding:calc(10px + env(safe-area-inset-top)) 66px 8px 14px;background:linear-gradient(to bottom,rgba(10,13,10,.85),transparent);pointer-events:none}
+.hud-row{display:flex;align-items:baseline;justify-content:space-between;gap:8px}.hud-species{font-family:var(--serif);font-style:italic;font-size:15px;color:var(--paper)}.hud-live{font-size:9px;letter-spacing:.12em;color:var(--phosphor);display:flex;align-items:center;gap:4px;flex-shrink:0}.dot{width:6px;height:6px;border-radius:50%;background:var(--phosphor);display:inline-block;animation:blink 1.6s infinite}@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+.hud-data{margin-top:4px;font-size:10.5px;color:var(--amber);line-height:1.5}.hud-note{margin-top:2px;font-size:9px;color:var(--paper-dim);line-height:1.5}
+#topRight{position:absolute;top:calc(10px + env(safe-area-inset-top));right:10px;z-index:6;display:flex;flex-direction:column;gap:8px;align-items:center}.round-btn{width:38px;height:38px;border-radius:50%;background:rgba(10,13,10,.55);border:1px solid var(--slate);color:var(--paper);font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;font-family:var(--mono);touch-action:manipulation}
+#irBtn.active{background:var(--rust);border-color:var(--rust);color:#1a0800}#irBtn:disabled{opacity:.25;pointer-events:none}
+#ui-panel{display:flex;flex-direction:column;background:var(--ink-2);border-top:1px solid var(--slate);z-index:5;padding-bottom:env(safe-area-inset-bottom)}
+#cat-bar{display:flex;gap:4px;padding:8px 10px;border-bottom:1px solid #1a2018;overflow-x:auto;scrollbar-width:none}#cat-bar::-webkit-scrollbar,#sub-bar::-webkit-scrollbar{display:none}
+.cat-btn{flex:0 0 auto;padding:8px 16px;font-family:var(--mono);font-size:12px;color:var(--paper-dim);background:transparent;border:1px solid transparent;cursor:pointer;touch-action:manipulation}.cat-btn.active{color:var(--phosphor);border-bottom:2px solid var(--phosphor)}
+#sub-bar{display:flex;gap:6px;padding:10px;overflow-x:auto;scrollbar-width:none}.sub-btn{flex:0 0 84px;display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 2px;border:1px solid var(--slate);border-radius:4px;background:transparent;color:var(--paper-dim);font-family:var(--mono);font-size:13px;font-weight:700;cursor:pointer;touch-action:manipulation}.sub-btn span{font-size:9px;font-weight:400;color:inherit;opacity:.7}.sub-btn.active{background:var(--phosphor);border-color:var(--phosphor);color:#04140a}.sub-btn.active span{color:#0a2b0f;opacity:.85}
 </style>
 </head>
 <body>
-
-  <div id="boot">
-    <div class="boot-inner">
-      <h1>Umwelt</h1>
-      <p class="boot-sub">生物光學文獻模擬系統・可觀測光譜受體近似（UV/IR 不偽造）</p>
-      <button id="startBtn">啟動相機感測 →</button>
-      <p class="boot-msg" id="bootMsg"></p>
-    </div>
-  </div>
-
-  <div id="app" hidden>
-    <div id="viewfinder">
-      <video id="webcam" autoplay playsinline muted></video>
-      <canvas id="canvas"></canvas>
-      <div id="hud">
-        <div class="hud-row"><span class="hud-species" id="hudSpecies"></span></div>
-        <div class="hud-data" id="hudData"></div>
-        <div class="hud-note" id="hudNote"></div>
-      </div>
-      <button id="flipBtn">⟲</button>
-    </div>
-
-    <div id="ui-panel">
-      <div id="cat-bar">
-        <button class="cat-btn active" data-cat="human">人類群集</button>
-        <button class="cat-btn" data-cat="dogcat">犬貓群集</button>
-        <button class="cat-btn" data-cat="insect">昆蟲群集</button>
-        <button class="cat-btn" data-cat="snake">蛇類群集</button>
-      </div>
-      <div id="sub-bar"></div>
-    </div>
-  </div>
-
+<div id="boot"><div class="boot-inner"><div class="boot-eyebrow">COMPARATIVE VISUAL PERCEPTION INSTRUMENT</div><h1>Umwelt</h1><p class="boot-sub">生物光學文獻模擬系統。可觀測光譜的受體近似模型 — UV／紅外等不可由手機相機量測的波段，一律明確標示為示意，不偽造成真實感測資料。</p><button id="startBtn">啟動相機感測 →</button><p class="boot-msg" id="bootMsg"></p><div class="boot-refs">REF — Machado, Oliveira &amp; Fernandes 2009 · Brettel, Viénot &amp; Mollon 1997/1999 · Peichl 2005 · Hardie 1985</div></div></div>
+<div id="app" hidden><div id="viewfinder"><video id="webcam" autoplay playsinline muted></video><canvas id="canvas"></canvas><div id="hud"><div class="hud-row"><span class="hud-species" id="hudSpecies"></span><span class="hud-live"><i class="dot"></i>LIVE</span></div><div class="hud-data" id="hudData"></div><div class="hud-note" id="hudNote"></div></div><div id="topRight"><button id="flipBtn" class="round-btn" aria-label="切換鏡頭">⟲</button><button id="irBtn" class="round-btn" aria-label="熱感代理示意">IR</button></div></div><div id="ui-panel"><div id="cat-bar"><button class="cat-btn active" data-cat="human">人類群集</button><button class="cat-btn" data-cat="dogcat">犬貓群集</button><button class="cat-btn" data-cat="insect">昆蟲群集</button><button class="cat-btn" data-cat="snake">蛇類群集</button></div><div id="sub-bar"></div></div></div>
 <script>
 (function(){
-  "use strict";
+'use strict';
+const DB={
+ human:[
+  {id:'h-norm',label:'正常三色',sub:'標準光譜',name:'Homo sapiens（正常三色視覺）',data:'S/M/L 三類視錐健全・光譜 400–700nm・視力基準 20/20',note:'全解析度直通，作為比較基準',mode:'pass'},
+  {id:'h-prot',label:'紅色盲',sub:'Protanopia',name:'Homo sapiens（第一色盲・Protanopia）',data:'L-錐缺失・紅綠混淆，長波區可顯得較暗',note:'Machado et al. (2009) 完整二色型模型',mode:'cvd',matrix:'protanopia',resW:520},
+  {id:'h-deut',label:'綠色盲',sub:'Deuteranopia',name:'Homo sapiens（第二色盲・Deuteranopia）',data:'M-錐缺失・綠紅混淆，綠不等於「完全消失」',note:'Machado et al. (2009) 完整二色型模型；綠／紅差異主要壓縮至黃、棕、灰等區域',mode:'cvd',matrix:'deuteranopia',resW:520},
+  {id:'h-trit',label:'藍色盲',sub:'Tritanopia',name:'Homo sapiens（第三色盲・Tritanopia）',data:'S-錐缺失・藍黃混淆，發生率低',note:'Machado et al. (2009) 完整二色型模型',mode:'cvd',matrix:'tritanopia',resW:520},
+  {id:'h-deuta',label:'紅綠色弱',sub:'Deuteranomaly',name:'Homo sapiens（異常三色視覺・Deuteranomaly）',data:'M-錐光譜敏感度偏移・非完全缺失',note:'Machado et al. (2009) 部分嚴重度近似',mode:'cvd',matrix:'deuteranopia',severity:.55,resW:520},
+  {id:'h-achr',label:'全色盲',sub:'Achromatopsia',name:'Homo sapiens（全色盲・Achromatopsia）',data:'錐細胞功能缺失・以桿細胞亮度資訊為主',note:'同時降低空間取樣；此處不模擬真正視網膜病變',mode:'gray',resW:190}
+ ],
+ dogcat:[
+  {id:'d-dog',label:'犬類',sub:'Canis',name:'Canis lupus familiaris',data:'S-錐約429nm／L-M通道約555nm・二色視覺',note:'以犬的雙通道視覺與較低空間取樣近似',mode:'animal',resW:260,dog:true,gain:1.0},
+  {id:'c-cat',label:'貓類',sub:'Felis',name:'Felis catus',data:'S-錐約450nm／L-M通道約556nm・二色視覺',note:'錐峰位置接近犬；降低空間取樣並給予有限低照度增益近似',mode:'animal',resW:190,dog:false,gain:1.18}
+ ],
+ insect:[
+  {id:'i-bee',label:'蜜蜂',sub:'Apis',name:'Apis mellifera',data:'UV約344nm／藍約436nm／綠約556nm・三色覺',note:'手機RGB無法量測UV；畫面只使用可見光投影，六角小眼示意',mode:'hex',cols:32,tint:'bee'},
+  {id:'i-fly',label:'蒼蠅',sub:'Musca',name:'Musca domestica',data:'多類感光受體・高時間解析度',note:'六角小眼採稀疏取樣；不把UV數值偽造成手機可見色',mode:'hex',cols:24,tint:'fly',motion:true},
+  {id:'i-mosq',label:'蚊子',sub:'Culicidae',name:'Culicidae',data:'複眼空間解析較低・另具非視覺熱／CO₂感測',note:'六角小眼大幅稀疏；IR按鈕只開啟可見亮度暖區代理，不是真正紅外資料',mode:'hex',cols:12,tint:'mosq',ir:true}
+ ],
+ snake:[
+  {id:'s-viper',label:'響尾蛇',sub:'Viperidae',name:'Crotalinae（頰窩亞科）',data:'視覺與頰窩熱感為分離通道',note:'基礎層是低解析去飽和可見光；IR為可見亮度暖區代理，不能視為LWIR成像',mode:'snake',ir:true}
+ ]
+};
+const video=document.getElementById('webcam'),canvas=document.getElementById('canvas'),ctx=canvas.getContext('2d',{alpha:false}),offC=document.createElement('canvas'),offCtx=offC.getContext('2d',{alpha:false}),viewfinder=document.getElementById('viewfinder'),hudSpecies=document.getElementById('hudSpecies'),hudData=document.getElementById('hudData'),hudNote=document.getElementById('hudNote'),subBar=document.getElementById('sub-bar'),irBtn=document.getElementById('irBtn'),startBtn=document.getElementById('startBtn'),bootMsg=document.getElementById('bootMsg');
+let curCat='human',curMode='h-norm',irOn=false,stream=null,vW=0,vH=0,rafId=0,running=false,switching=false,facing='environment';
+const HEX={};
+function clamp(v){return v<0?0:v>255?255:v}
+function conf(){return DB[curCat].find(x=>x.id===curMode)}
+function updateHUD(){const c=conf();hudSpecies.textContent=c.name;hudData.textContent=c.data;hudNote.textContent=c.note+(c.ir?'　〔IR代理：'+(irOn?'開':'關')+'〕':'')}
+function syncIR(){const c=conf();irBtn.disabled=!c.ir;if(!c.ir)irOn=false;irBtn.classList.toggle('active',!!c.ir&&irOn);updateHUD()}
+function buildSub(cat){subBar.innerHTML='';DB[cat].forEach(m=>{const b=document.createElement('button');b.className='sub-btn'+(m.id===curMode?' active':'');b.innerHTML=m.label+'<span>'+m.sub+'</span>';b.onclick=()=>{curMode=m.id;subBar.querySelectorAll('.sub-btn').forEach(x=>x.classList.remove('active'));b.classList.add('active');syncIR()};subBar.appendChild(b)})}
+document.querySelectorAll('.cat-btn').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.cat-btn').forEach(x=>x.classList.remove('active'));b.classList.add('active');curCat=b.dataset.cat;curMode=DB[curCat][0].id;buildSub(curCat);syncIR()}));
+irBtn.addEventListener('click',()=>{if(irBtn.disabled)return;irOn=!irOn;syncIR()});
 
-  const DB = {
-    human: [
-      { id: 'h-norm', label: '正常三色', sub: '標準光譜', name: 'Homo sapiens (Normal)', data: '光譜 400-700nm・高解析度', note: 'Viénot 1999 基準模型：L/M/S 視錐細胞健全' },
-      { id: 'h-prot', label: '紅色盲', sub: 'Protanopia', name: 'Homo sapiens (Protanopia)', data: 'L-Cone 缺失・紅色識別障礙', note: 'Viénot 1999 轉換矩陣：長波光譜壓縮' },
-      { id: 'h-deut', label: '綠色盲', sub: 'Deuteranopia', name: 'Homo sapiens (Deuteranopia)', data: 'M-Cone 缺失・綠色識別障礙', note: 'Viénot 1999 修正模型：綠色光譜轉譯為黃褐色/灰黃' },
-      { id: 'h-trit', label: '藍色盲', sub: 'Tritanopia', name: 'Homo sapiens (Tritanopia)', data: 'S-Cone 缺失・藍黃色覺軸崩潰', note: 'Viénot 1999 修正模型：藍色光譜轉譯為青綠色與灰階' },
-      { id: 'h-achr', label: '全色盲', sub: 'Achromatopsia', name: 'Homo sapiens (Achromatopsia)', data: '無視錐細胞・僅桿狀細胞作用', note: '僅保留灰階亮度矩陣 (Luminance)' }
-    ],
-    dogcat: [
-      { id: 'd-dog', label: '犬類', sub: 'Canis', name: 'Canis lupus familiaris', data: '雙色覺・S/L-M錐體峰值約429/555 nm', note: '犬雙色覺；錐體峰值約429/555 nm' },
-      { id: 'c-cat', label: '貓類', sub: 'Felis', name: 'Felis catus', data: '雙色覺・S/L錐體峰值約450/556 nm', note: '貓具S/L錐體；峰值約450/556 nm，另有大量桿細胞' }
-    ],
-    insect: [
-      { id: 'i-bee', label: '蜜蜂', sub: 'Apis', name: 'Apis mellifera', data: 'UV-藍-綠三色覺・UV無法由RGB相機直接量測', note: 'Apis mellifera：UV/藍/綠三類感光受體；本裝置無UV感測器，僅顯示可見光近似' },
-      { id: 'i-fly', label: '蒼蠅', sub: 'Musca', name: 'Musca domestica', data: '複眼取樣幾何・多類視覺受體', note: '昆蟲複眼：多受體與六角小眼排列；本模型為幾何近似' },
-      { id: 'i-mosq', label: '蚊子', sub: 'Culicidae', name: 'Culicidae', data: '低解析度、高對比可見光近似', note: '本模型不把RGB亮度冒充紅外熱感測' }
-    ],
-    snake: [
-      { id: 's-viper', label: '響尾蛇', sub: 'Viperidae', name: 'Crotalinae (Pit Organ)', data: '頰窩紅外輻射感知；RGB相機無法直接量測長波紅外', note: '頰窩可感受熱輻射；本模型不由RGB偽造熱成像' }
-    ]
-  };
+// Machado 2009 full-severity matrices for dichromacy.
+const M={
+ protanopia:[[0.152286,1.052583,-0.204868],[0.114503,0.786281,0.099216],[-0.003882,-0.048116,1.051998]],
+ deuteranopia:[[0.367322,0.860646,-0.227968],[0.280085,0.672501,0.047413],[-0.011820,0.042940,0.968881]],
+ tritanopia:[[1.255528,-0.076749,-0.178779],[-0.078411,0.930809,0.147602],[0.004733,0.691367,0.303900]]
+};
+function matrixPixels(d,m,severity){severity=severity==null?1:severity;for(let i=0;i<d.length;i+=4){const r=d[i],g=d[i+1],b=d[i+2],nr=m[0][0]*r+m[0][1]*g+m[0][2]*b,ng=m[1][0]*r+m[1][1]*g+m[1][2]*b,nb=m[2][0]*r+m[2][1]*g+m[2][2]*b;d[i]=clamp(r+(nr-r)*severity);d[i+1]=clamp(g+(ng-g)*severity);d[i+2]=clamp(b+(nb-b)*severity)}}
+function grayPixels(d){for(let i=0;i<d.length;i+=4){const y=.2126*d[i]+.7152*d[i+1]+.0722*d[i+2];d[i]=d[i+1]=d[i+2]=y}}
+function drawProcessed(w,fn){const h=Math.max(1,Math.round(w*vH/vW));offC.width=w;offC.height=h;offCtx.drawImage(video,0,0,w,h);const img=offCtx.getImageData(0,0,w,h);fn(img.data);offCtx.putImageData(img,0,0);ctx.imageSmoothingEnabled=true;ctx.drawImage(offC,0,0,w,h,0,0,vW,vH)}
+function renderPass(){ctx.imageSmoothingEnabled=true;ctx.drawImage(video,0,0,vW,vH)}
+function renderHuman(c){if(c.mode==='pass')renderPass();else if(c.mode==='gray')drawProcessed(c.resW,grayPixels);else drawProcessed(c.resW,d=>matrixPixels(d,M[c.matrix],c.severity))}
+function renderAnimal(c){const w=c.resW,h=Math.max(1,Math.round(w*vH/vW));offC.width=w;offC.height=h;offCtx.drawImage(video,0,0,w,h);const img=offCtx.getImageData(0,0,w,h),d=img.data,dog=c.dog;for(let i=0;i<d.length;i+=4){const r=d[i]/255,g=d[i+1]/255,b=d[i+2]/255,s=.06*r+(dog?.15:.13)*g+(dog?.79:.83)*b,lm=(dog?.34:.38)*r+.58*g+.08*b,chrom=s/(s+lm+1e-6),lum=Math.min(1,(s+lm)*.58*c.gain);d[i]=clamp(255*lum*(.86+.14*chrom));d[i+1]=clamp(255*lum*(.74+.26*(1-chrom)));d[i+2]=clamp(255*lum*(.25+.75*chrom))}offCtx.putImageData(img,0,0);ctx.imageSmoothingEnabled=true;ctx.drawImage(offC,0,0,w,h,0,0,vW,vH)}
+function hexGeom(cols){const key=cols+'x'+vW+'x'+vH;if(HEX[key])return HEX[key];const r=vW/(cols*Math.sqrt(3)),cw=Math.sqrt(3)*r,rw=1.5*r;return HEX[key]={r,cw,rw,cols:Math.ceil(vW/cw)+2,rows:Math.ceil(vH/rw)+2}}
+function tint(r,g,b,type){const y=.3*r+.59*g+.11*b;if(type==='bee')return [clamp(.08*r+.14*g),clamp(.75*g+.18*b),clamp(.82*b+.14*g+10)];if(type==='fly')return [clamp(.08*r+.18*g),clamp(.72*g+.16*b),clamp(.88*b+.10*g+8)];return [clamp(y*.5),clamp(y*.72),clamp(y*.88)]}
+const prevMotion={};
+function renderHex(c){const g=hexGeom(c.cols);offC.width=g.cols;offC.height=g.rows;offCtx.drawImage(video,0,0,g.cols,g.rows);const d=offCtx.getImageData(0,0,g.cols,g.rows).data;ctx.fillStyle='#000';ctx.fillRect(0,0,vW,vH);if(!prevMotion[c.id])prevMotion[c.id]=new Float32Array(g.cols*g.rows);const prev=prevMotion[c.id];for(let y=0;y<g.rows;y++){const ox=y%2?g.cw/2:0;for(let x=0;x<g.cols;x++){const k=y*g.cols+x,i=k*4;let [rr,gg,bb]=tint(d[i],d[i+1],d[i+2],c.tint);if(c.motion){const lum=.3*d[i]+.59*d[i+1]+.11*d[i+2],delta=Math.abs(lum-prev[k]);prev[k]=lum;if(delta>18){const q=Math.min(1,delta/70);gg=clamp(gg+65*q);rr=clamp(rr+20*q)}}const cx=x*g.cw+ox,cy=y*g.rw;ctx.beginPath();for(let j=0;j<6;j++){const a=Math.PI/180*(60*j-30),px=cx+g.r*.94*Math.cos(a),py=cy+g.r*.94*Math.sin(a);j?ctx.lineTo(px,py):ctx.moveTo(px,py)}ctx.closePath();ctx.fillStyle='rgb('+rr+','+gg+','+bb+')';ctx.fill()}}if(c.ir&&irOn)warmProxy()}
+function warmProxy(){const w=8,h=6;offC.width=w;offC.height=h;offCtx.drawImage(video,0,0,w,h);const d=offCtx.getImageData(0,0,w,h).data,cw=vW/w,ch=vH/h;ctx.save();ctx.globalCompositeOperation='lighter';for(let y=0;y<h;y++)for(let x=0;x<w;x++){const i=(y*w+x)*4,l=(.3*d[i]+.59*d[i+1]+.11*d[i+2])/255;if(l<.55)continue;const X=x*cw+cw/2,Y=y*ch+ch/2,rad=cw*1.5,a=(l-.55)*.35,gr=ctx.createRadialGradient(X,Y,0,X,Y,rad);gr.addColorStop(0,'rgba(217,164,65,'+a+')');gr.addColorStop(1,'rgba(217,164,65,0)');ctx.fillStyle=gr;ctx.beginPath();ctx.arc(X,Y,rad,0,Math.PI*2);ctx.fill()}ctx.restore()}
+function renderSnake(c){const w=52;drawProcessed(w,d=>{for(let i=0;i<d.length;i+=4){const y=.2126*d[i]+.7152*d[i+1]+.0722*d[i+2];d[i]=clamp(y*.92);d[i+1]=clamp(y*.88);d[i+2]=clamp(y*.86)}});if(c.ir&&irOn)warmProxy()}
+function renderCurrent(){const c=conf();if(curCat==='human')renderHuman(c);else if(curCat==='dogcat')renderAnimal(c);else if(c.mode==='hex')renderHex(c);else renderSnake(c)}
+function loop(){if(!running)return;if(video.readyState<video.HAVE_CURRENT_DATA||!vW||!vH){rafId=requestAnimationFrame(loop);return}try{renderCurrent()}catch(e){}rafId=requestAnimationFrame(loop)}
 
-  const video = document.getElementById('webcam');
-  const canvas = document.getElementById('canvas');
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  const offC = document.createElement('canvas');
-  const offCtx = offC.getContext('2d', { willReadFrequently: true });
-
-  let curCat = 'human', curMode = 'h-norm';
-  let stream = null, vW = 0, vH = 0, rafId = null, running = false;
-  let flyGeom = null;
-
-  function clamp(v){ return v<0?0:(v>255?255:v); }
-
-  function updateHUD(){
-    const conf = DB[curCat].find(m => m.id === curMode);
-    document.getElementById('hudSpecies').textContent = conf.name;
-    document.getElementById('hudData').textContent = conf.data;
-    document.getElementById('hudNote').textContent = conf.note;
-  }
-
-  function buildSubMenu(cat){
-    const subBar = document.getElementById('sub-bar');
-    subBar.innerHTML = '';
-    DB[cat].forEach(m => {
-      const btn = document.createElement('button');
-      btn.className = 'sub-btn' + (m.id === curMode ? ' active' : '');
-      btn.innerHTML = `${m.label}<span>${m.sub}</span>`;
-      btn.onclick = () => {
-        curMode = m.id;
-        document.querySelectorAll('.sub-btn').forEach(b=>b.classList.remove('active'));
-        btn.classList.add('active');
-        updateHUD();
-      };
-      subBar.appendChild(btn);
-    });
-  }
-
-  document.querySelectorAll('.cat-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      curCat = btn.dataset.cat;
-      curMode = DB[curCat][0].id;
-      buildSubMenu(curCat);
-      updateHUD();
-    });
-  });
-
-  /* ---------- 科學視覺模型 ----------
-     限制：一般 RGB 相機無法真正量測 340–400 nm UV 或 8–14 µm LWIR。
-     因此本引擎只從可觀測 RGB 做 receptor-space 近似，不偽裝成光譜重建。
-  */
-  const REC = {
-    dog: [429,555], cat: [450,556], bee: [344,436,556],
-    // Musca domestica：示意使用五類視覺受體的主峰；僅作可見光近似
-    fly: [345,375,437,478,508]
-  };
-
-  function srgbToLinear(c){
-    c/=255;
-    return c<=0.04045 ? c/12.92 : Math.pow((c+0.055)/1.055,2.4);
-  }
-  function linearToSrgb(c){
-    c=Math.max(0,Math.min(1,c));
-    return c<=0.0031308 ? 12.92*c : 1.055*Math.pow(c,1/2.4)-0.055;
-  }
-  function gauss(x,mu,sigma){
-    const z=(x-mu)/sigma;
-    return Math.exp(-0.5*z*z);
-  }
-
-  // 從線性 sRGB 近似取得光譜受體激發。
-  // 這不是 RGB→光譜反演；UV/IR 被明確視為不可觀測。
-  function receptorExcitation(r,g,b,peaks){
-    const R=r/255, G=g/255, B=b/255;
-    const out=[];
-    const visible=[[610,0.24],[550,0.24],[450,0.20]];
-    for(const p of peaks){
-      let s=0;
-      s += R*gauss(p,610,38);
-      s += G*gauss(p,550,32);
-      s += B*gauss(p,450,28);
-      out.push(s);
-    }
-    return out;
-  }
-
-  function setRGB(d,i,r,g,b){
-    d[i]=Math.round(clamp(255*linearToSrgb(r)));
-    d[i+1]=Math.round(clamp(255*linearToSrgb(g)));
-    d[i+2]=Math.round(clamp(255*linearToSrgb(b)));
-  }
-
-  function renderReceptors(resW, modeId){
-    const resH=Math.max(1,Math.floor(resW*(vH/vW)));
-    offC.width=resW; offC.height=resH;
-    offCtx.drawImage(video,0,0,resW,resH);
-    const img=offCtx.getImageData(0,0,resW,resH);
-    const d=img.data;
-
-    for(let i=0;i<d.length;i+=4){
-      const r=srgbToLinear(d[i]), g=srgbToLinear(d[i+1]), b=srgbToLinear(d[i+2]);
-
-      if(modeId==='h-prot' || modeId==='h-deut' || modeId==='h-trit'){
-        // Brettel/Vienot 類方法應在 LMS/線性空間做；此處以光譜受體壓縮近似。
-        const L=0.7*r+0.25*g+0.05*b;
-        const M=0.20*r+0.72*g+0.08*b;
-        const S=0.04*r+0.18*g+0.78*b;
-        if(modeId==='h-prot') setRGB(d,i,M,M,S);
-        else if(modeId==='h-deut') setRGB(d,i,L,L,S);
-        else setRGB(d,i,L,M,M);
-      }
-      else if(modeId==='h-achr'){
-        const y=0.2126*r+0.7152*g+0.0722*b;
-        setRGB(d,i,y,y,y);
-      }
-      else if(modeId==='d-dog' || modeId==='c-cat'){
-        const peaks=modeId==='d-dog'?REC.dog:REC.cat;
-        const q=receptorExcitation(d[i],d[i+1],d[i+2],peaks);
-        const s=q[0], l=q[1];
-        // 視覺化兩受體訊號；不把「不存在的顏色」硬造出來。
-        const total=Math.max(1e-6,s+l);
-        const chrom=s/total;
-        const lum=Math.min(1,total*0.72);
-        setRGB(d,i,
-          lum*(0.85+0.15*chrom),
-          lum*(0.78+0.22*(1-chrom)),
-          lum*(0.35+0.65*chrom)
-        );
-      }
-      else if(modeId==='i-bee'){
-        const q=receptorExcitation(d[i],d[i+1],d[i+2],REC.bee);
-        const uv=q[0], blue=q[1], green=q[2];
-        // RGB camera cannot observe UV; use only the visible channels.
-        // UV is deliberately not synthesized from blue.
-        const sum=Math.max(1e-6,blue+green);
-        const chrom=blue/sum;
-        const lum=Math.min(1,(blue+green)*0.68);
-        setRGB(d,i,
-          lum*(0.20+0.30*chrom),
-          lum*(0.50+0.35*green/sum),
-          lum*(0.75+0.20*chrom)
-        );
-      }
-      else if(modeId==='i-mosq'){
-        // 蚊科視覺不是「熱成像」；此模式僅模擬低解析度、高對比可見光。
-        const y=0.2126*r+0.7152*g+0.0722*b;
-        const y2=Math.pow(y,0.72);
-        setRGB(d,i,y2,y2,y2);
-      }
-      else if(modeId==='s-viper'){
-        // 不能由 RGB 推算 5–15 µm 輻射。保持可見光並降低解析度；
-        // 不再製造假的 Ironbow 熱圖。
-        const y=0.2126*r+0.7152*g+0.0722*b;
-        setRGB(d,i,y,y,y);
-      }
-    }
-
-    offCtx.putImageData(img,0,0);
-    ctx.imageSmoothingEnabled=true;
-    ctx.drawImage(offC,0,0,resW,resH,0,0,vW,vH);
-  }
-
-  /* 蒼蠅：保留複眼幾何效果，但不聲稱是真實個體視網膜映射 */
-  function processFlyEye(){
-    if(!flyGeom || flyGeom.vW!==vW){
-      const r=vW/36;
-      flyGeom={r,cStep:Math.sqrt(3)*r,rStep:1.5*r,
-        cols:Math.ceil(vW/(Math.sqrt(3)*r))+2,
-        rows:Math.ceil(vH/(1.5*r))+2,vW};
-    }
-    const {r,cStep,rStep,cols,rows}=flyGeom;
-    offC.width=cols; offC.height=rows;
-    offCtx.drawImage(video,0,0,cols,rows);
-    const imgData=offCtx.getImageData(0,0,cols,rows).data;
-    ctx.fillStyle='#030503'; ctx.fillRect(0,0,vW,vH);
-
-    for(let cy=0;cy<rows;cy++){
-      const offX=(cy%2)?cStep/2:0;
-      for(let cx=0;cx<cols;cx++){
-        const idx=(cy*cols+cx)*4;
-        const r0=srgbToLinear(imgData[idx]);
-        const g0=srgbToLinear(imgData[idx+1]);
-        const b0=srgbToLinear(imgData[idx+2]);
-
-        // 五類受體的可見光近似，只做相對 chromatic projection。
-        const q=receptorExcitation(imgData[idx],imgData[idx+1],imgData[idx+2],REC.fly);
-        const uv=q[0]*0.4, violet=q[1]*0.7, blue=q[2],
-              green=q[3]*0.9, green2=q[4];
-        const sum=Math.max(1e-6,violet+blue+green+green2);
-        const cR=0.18*uv+0.22*blue+0.18*green;
-        const cG=0.25*violet+0.60*blue+0.50*green;
-        const cB=0.45*violet+0.75*blue+0.55*green2;
-        const lum=Math.min(1,(r0+g0+b0)/2.4);
-
-        const x=cx*cStep+offX,y=cy*rStep;
-        ctx.beginPath();
-        for(let k=0;k<6;k++){
-          const ang=Math.PI/180*(60*k-30);
-          ctx[k===0?'moveTo':'lineTo'](x+r*0.88*Math.cos(ang),y+r*0.88*Math.sin(ang));
-        }
-        ctx.closePath();
-        ctx.fillStyle=`rgb(${clamp(255*linearToSrgb(cR*lum))},${clamp(255*linearToSrgb(cG*lum))},${clamp(255*linearToSrgb(cB*lum))})`;
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(x-r*0.25,y-r*0.25,r*0.16,0,Math.PI*2);
-        ctx.fillStyle='rgba(255,255,255,0.14)';
-        ctx.fill();
-      }
-    }
-  }
-
-  function processOpticalMatrix(resW,modeId){
-    renderReceptors(resW,modeId);
-  }
-
-
-  let facing='environment';
-  let switching=false;
-  let renderQueued=false;
-
-  function stopCamera(){
-    running=false;
-    if(stream){
-      for(const track of stream.getTracks()) track.stop();
-      stream=null;
-    }
-    video.pause();
-    video.srcObject=null;
-    cancelAnimationFrame(rafId);
-  }
-
-  async function waitForVideoReady(){
-    if(video.readyState>=2 && video.videoWidth>0 && video.videoHeight>0) return;
-    await new Promise((resolve,reject)=>{
-      let done=false;
-      const finish=(err)=>{
-        if(done) return;
-        done=true;
-        clearTimeout(timer);
-        video.removeEventListener('loadedmetadata',check);
-        video.removeEventListener('canplay',check);
-        if(err) reject(err); else resolve();
-      };
-      const check=()=>{
-        if(video.videoWidth>0 && video.videoHeight>0) finish();
-      };
-      const timer=setTimeout(()=>finish(new Error('camera metadata timeout')),10000);
-      video.addEventListener('loadedmetadata',check);
-      video.addEventListener('canplay',check);
-      check();
-    });
-  }
-
-  function fitCanvasToVideo(){
-    if(video.videoWidth>0 && video.videoHeight>0){
-      vW=video.videoWidth;
-      vH=video.videoHeight;
-      if(canvas.width!==vW) canvas.width=vW;
-      if(canvas.height!==vH) canvas.height=vH;
-      flyGeom=null;
-    }
-  }
-
-  async function openCamera(mode){
-    if(switching) return;
-    switching=true;
-    stopCamera();
-
-    try{
-      if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-        throw new Error('getUserMedia unavailable');
-      }
-
-      let constraints={
-        audio:false,
-        video:{
-          facingMode:{ideal:mode},
-          width:{ideal:1280},
-          height:{ideal:720}
-        }
-      };
-
-      try{
-        stream=await navigator.mediaDevices.getUserMedia(constraints);
-      }catch(firstError){
-        constraints={audio:false,video:true};
-        stream=await navigator.mediaDevices.getUserMedia(constraints);
-      }
-
-      video.muted=true;
-      video.autoplay=true;
-      video.playsInline=true;
-      video.srcObject=stream;
-
-      await waitForVideoReady();
-      await video.play();
-
-      // Read actual camera dimensions only after playback is valid.
-      vW=video.videoWidth;
-      vH=video.videoHeight;
-      if(vW<2 || vH<2) throw new Error('invalid camera dimensions');
-
-      canvas.width=vW;
-      canvas.height=vH;
-      flyGeom=null;
-
-      document.getElementById('viewfinder').classList.toggle('mirror',mode==='user');
-      switching=false;
-    }catch(e){
-      switching=false;
-      stopCamera();
-      throw e;
-    }
-  }
-
-  function drawNormal(){
-    ctx.save();
-    ctx.clearRect(0,0,vW,vH);
-    ctx.imageSmoothingEnabled=true;
-
-    const vw=video.videoWidth, vh=video.videoHeight;
-    if(!vw || !vh){
-      ctx.restore();
-      return;
-    }
-
-    // Cover crop in the intrinsic canvas coordinate system.
-    const scale=Math.max(vW/vw,vH/vh);
-    const dw=vw*scale, dh=vh*scale;
-    const dx=(vW-dw)/2, dy=(vH-dh)/2;
-    ctx.drawImage(video,dx,dy,dw,dh);
-
-    ctx.restore();
-  }
-
-  function loop(){
-    if(!running) return;
-
-    if(video.readyState<2 || !vW || !vH){
-      rafId=requestAnimationFrame(loop);
-      return;
-    }
-
-    try{
-      if(curMode==='h-norm'){
-        drawNormal();
-      }else if(curMode.startsWith('h-')){
-        processOpticalMatrix(vW,curMode);
-      }else if(curMode==='d-dog'){
-        processOpticalMatrix(Math.max(320,Math.floor(vW*0.55)),curMode);
-      }else if(curMode==='c-cat'){
-        processOpticalMatrix(Math.max(320,Math.floor(vW*0.50)),curMode);
-      }else if(curMode==='i-bee'){
-        processOpticalMatrix(Math.max(320,Math.floor(vW*0.55)),curMode);
-      }else if(curMode==='i-fly'){
-        processFlyEye();
-      }else if(curMode==='i-mosq'){
-        processOpticalMatrix(Math.max(160,Math.floor(vW*0.12)),curMode);
-      }else if(curMode==='s-viper'){
-        processOpticalMatrix(Math.max(160,Math.floor(vW*0.16)),curMode);
-      }
-    }catch(e){
-      const note=document.getElementById('hudNote');
-      if(note) note.textContent='渲染錯誤：'+(e.message||e.name||'unknown');
-      running=false;
-      return;
-    }
-
-    rafId=requestAnimationFrame(loop);
-  }
-
-  document.getElementById('startBtn').addEventListener('click',async()=>{
-    const btn=document.getElementById('startBtn');
-    const msg=document.getElementById('bootMsg');
-    btn.disabled=true;
-    msg.textContent='';
-    btn.textContent='初始化光學中…';
-
-    try{
-      await openCamera(facing);
-
-      // Show the application only after the video is actually playable.
-      document.getElementById('app').hidden=false;
-      document.getElementById('boot').style.display='none';
-      buildSubMenu(curCat);
-      updateHUD();
-
-      running=true;
-      loop();
-    }catch(e){
-      btn.disabled=false;
-      btn.textContent='重試';
-      msg.textContent='相機啟動失敗：'+(e.name||e.message||'Unknown error');
-    }
-  });
-
-  document.getElementById('flipBtn').addEventListener('click',async()=>{
-    if(switching) return;
-    const next=facing==='environment'?'user':'environment';
-
-    try{
-      await openCamera(next);
-      facing=next;
-      running=true;
-      loop();
-    }catch(e){
-      const note=document.getElementById('hudNote');
-      if(note) note.textContent='鏡頭切換失敗：'+(e.name||e.message||'Unknown error');
-    }
-  });
-
-  document.addEventListener('visibilitychange',async()=>{
-    if(document.hidden){
-      running=false;
-      cancelAnimationFrame(rafId);
-      return;
-    }
-
-    if(stream && video.readyState>=2){
-      try{
-        await video.play();
-        fitCanvasToVideo();
-        running=true;
-        loop();
-      }catch(e){}
-    }
-  });
-
-  window.addEventListener('resize',()=>{
-    if(video.videoWidth>0 && video.videoHeight>0){
-      fitCanvasToVideo();
-    }
-  });
-
-  window.addEventListener('beforeunload',stopCamera);
-
-
+function stopCamera(){if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}video.pause();video.srcObject=null}
+function waitVideo(){return new Promise((resolve,reject)=>{if(video.readyState>=video.HAVE_METADATA&&video.videoWidth>0){resolve();return}let done=false;const timer=setTimeout(()=>{if(done)return;done=true;reject(new Error('Camera metadata timeout'))},10000);const check=()=>{if(done)return;if(video.videoWidth>0&&video.videoHeight>0){done=true;clearTimeout(timer);video.removeEventListener('loadedmetadata',check);video.removeEventListener('canplay',check);resolve()}};video.addEventListener('loadedmetadata',check);video.addEventListener('canplay',check)})}
+function fit(){vW=video.videoWidth;vH=video.videoHeight;if(!vW||!vH)throw new Error('Invalid camera dimensions');canvas.width=vW;canvas.height=vH;for(const k in HEX)delete HEX[k]}
+async function openCamera(mode){if(switching)return;switching=true;running=false;cancelAnimationFrame(rafId);stopCamera();try{let c={audio:false,video:{facingMode:{ideal:mode},width:{ideal:1280},height:{ideal:720},frameRate:{ideal:30,max:30}}};try{stream=await navigator.mediaDevices.getUserMedia(c)}catch(e){stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:mode}})}video.srcObject=stream;video.muted=true;video.playsInline=true;video.setAttribute('playsinline','');video.setAttribute('webkit-playsinline','true');await waitVideo();await video.play();fit();viewfinder.classList.toggle('mirror',mode==='user');switching=false}catch(e){switching=false;stopCamera();throw e}}
+startBtn.addEventListener('click',async()=>{startBtn.disabled=true;startBtn.textContent='初始化光學中…';bootMsg.textContent='';try{await openCamera(facing);document.getElementById('boot').style.display='none';document.getElementById('app').hidden=false;buildSub(curCat);syncIR();running=true;loop()}catch(e){bootMsg.textContent='相機啟動失敗：'+(e.name||e.message||'Unknown error');startBtn.textContent='重試 →';startBtn.disabled=false}})
+document.getElementById('flipBtn').addEventListener('click',async()=>{if(switching)return;const next=facing==='environment'?'user':'environment';try{await openCamera(next);facing=next;running=true;loop()}catch(e){hudNote.textContent='鏡頭切換失敗：'+(e.name||e.message||'Unknown error')}})
+document.addEventListener('visibilitychange',async()=>{if(document.hidden){running=false;cancelAnimationFrame(rafId)}else if(stream&&video.readyState>=video.HAVE_CURRENT_DATA){try{await video.play();fit();running=true;loop()}catch(e){}}})
+window.addEventListener('pagehide',stopCamera);window.addEventListener('beforeunload',stopCamera);window.addEventListener('resize',()=>{if(video.videoWidth&&video.videoHeight)fit()});window.addEventListener('orientationchange',()=>setTimeout(()=>{if(video.videoWidth&&video.videoHeight)fit()},300));
+buildSub(curCat);syncIR();
 })();
 </script>
 </body>
 </html>
+
