@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>UMWELT｜跨物種視角模擬器</title>
+<title>UMWELT｜動物視角模擬器</title>
 <style>
 :root{--ink:#0a0d0a;--ink-2:#12160f;--paper:#e7e3d3;--paper-dim:#9c9a86;--phosphor:#8fe38f;--phosphor-dim:#4f7a52;--rust:#c2652e;--amber:#d9a441;--slate:#31382f;--mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;--serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif}
 *{box-sizing:border-box;margin:0;padding:0;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
@@ -30,7 +30,7 @@ canvas{width:100%;height:100%;object-fit:cover;display:block}#viewfinder.mirror 
 </style>
 </head>
 <body>
-<div id="boot"><div class="boot-inner"><div class="boot-eyebrow">COMPARATIVE VISUAL PERCEPTION INSTRUMENT</div><h1>Umwelt</h1><p class="boot-sub">生物光學文獻模擬系統。可觀測光譜的受體近似模型 — UV／紅外等不可由手機相機量測的波段，一律明確標示為示意，不偽造成真實感測資料。</p><button id="startBtn">啟動相機感測 →</button><p class="boot-msg" id="bootMsg"></p><div class="boot-refs">REF — Machado, Oliveira &amp; Fernandes 2009 · Brettel, Viénot &amp; Mollon 1997/1999 · Peichl 2005 · Hardie 1985</div></div></div>
+<div id="boot"><div class="boot-inner"><div class="boot-eyebrow">COMPARATIVE VISUAL PERCEPTION INSTRUMENT</div><h1>Umwelt</h1><p class="boot-sub">UV / 紅外等非相機量測波段僅供示意，非真實感測資料。</p><button id="startBtn">啟動相機開始模擬 →</button><p class="boot-msg" id="bootMsg"></p><div class="boot-refs">REF — Machado, Oliveira &amp; Fernandes 2009 · Brettel, Viénot &amp; Mollon 1997/1999 · Peichl 2005 · Hardie 1985</div></div></div>
 <div id="app" hidden><div id="viewfinder"><video id="webcam" autoplay playsinline muted></video><canvas id="canvas"></canvas><div id="hud"><div class="hud-row"><span class="hud-species" id="hudSpecies"></span><span class="hud-live"><i class="dot"></i>LIVE</span></div><div class="hud-data" id="hudData"></div><div class="hud-note" id="hudNote"></div></div><div id="topRight"><button id="flipBtn" class="round-btn" aria-label="切換鏡頭">⟲</button><button id="irBtn" class="round-btn" aria-label="熱感代理示意">IR</button></div></div><div id="ui-panel"><div id="cat-bar"><button class="cat-btn active" data-cat="human">人類群集</button><button class="cat-btn" data-cat="dogcat">犬貓群集</button><button class="cat-btn" data-cat="insect">昆蟲群集</button><button class="cat-btn" data-cat="snake">蛇類群集</button></div><div id="sub-bar"></div></div></div>
 <script>
 (function(){
